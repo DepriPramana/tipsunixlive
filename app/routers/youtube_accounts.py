@@ -20,6 +20,7 @@ def get_db():
     finally:
         db.close()
 
+@router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def list_accounts(request: Request, db: Session = Depends(get_db)):
     accounts = db.query(YouTubeAccount).all()

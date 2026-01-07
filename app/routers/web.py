@@ -26,6 +26,7 @@ def get_db():
         db.close()
 
 
+@router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
     """Dashboard utama"""
