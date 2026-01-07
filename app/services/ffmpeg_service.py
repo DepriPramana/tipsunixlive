@@ -317,16 +317,20 @@ class FFmpegService:
         # Build command
         cmd = [
             FFMPEG_PATH,
-            '-re',  # Read input at native frame rate
+            '-nostdin',              # Disable interactive stdin
+            '-loglevel', 'warning',  # Only show warnings and errors
+            '-re',                   # Read input at native frame rate
+            '-fflags', '+genpts+igndts', # Force generation of PTS and ignore DTS for stability
             '-f', 'concat',
             '-safe', '0',
             '-stream_loop', '-1' if loop else '0',  # -1 = infinite loop
             '-i', concat_file,
             
             # Stream Copy Mode (Near 0% CPU Usage)
-            # IMPORTANT: All source videos MUST have the same resolution, codec, and bitrate.
             '-c:v', 'copy',
             '-c:a', 'copy',
+            '-b:a', '128k',          # Included as requested, though 'copy' takes priority
+            '-ar', '44100',          # Included as requested, though 'copy' takes priority
             
             # Output settings
             '-f', 'flv',
