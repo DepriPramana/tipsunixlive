@@ -21,6 +21,7 @@ def get_db():
     finally:
         db.close()
 
+@router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def list_users(
     request: Request, 
