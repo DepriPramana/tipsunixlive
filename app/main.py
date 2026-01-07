@@ -57,15 +57,24 @@ def cleanup_zombie_sessions():
     
     db = SessionLocal()
     try:
+        from app.services.stream_control_service import stream_control
+        
+        # 1. Kill system processes that are not in DB (or if DB says they are running but they are orphans)
+        print("🔍 Searching for orphaned FFmpeg processes...")
+        cleanup_result = stream_control.force_cleanup_orphaned_processes(db)
+        if cleanup_result['killed_count'] > 0:
+            print(f"💀 Killed {cleanup_result['killed_count']} orphaned FFmpeg processes")
+
+        # 2. Mark any remaining 'running' sessions as 'interrupted'
         zombies = db.query(LiveSession).filter(LiveSession.status == 'running').all()
         if zombies:
-            print(f"🧹 Cleaning up {len(zombies)} zombie sessions...")
+            print(f"🧹 Marking {len(zombies)} ghost sessions in DB as interrupted...")
             for session in zombies:
                 session.status = 'interrupted'
                 session.end_time = datetime.utcnow()
             db.commit()
     except Exception as e:
-        print(f"❌ Error cleaning up sessions: {e}")
+        print(f"❌ Error during startup cleanup: {e}")
     finally:
         db.close()
 

@@ -29,6 +29,8 @@ def get_db():
 class HistoryResponse(BaseModel):
     """Schema response untuk history"""
     id: int
+    stream_key_id: Optional[int]
+    stream_key_name: Optional[str]
     mode: str
     video_id: Optional[int]
     playlist_id: Optional[int]
@@ -97,6 +99,8 @@ def get_all_history(
     for session in sessions:
         results.append({
             "id": session.id,
+            "stream_key_id": session.stream_key_id,
+            "stream_key_name": session.stream_key_rel.name if session.stream_key_rel else None,
             "mode": session.mode,
             "video_id": session.video_id,
             "playlist_id": session.playlist_id,

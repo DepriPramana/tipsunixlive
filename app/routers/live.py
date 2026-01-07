@@ -380,3 +380,12 @@ def stop_by_stream_key(
         raise HTTPException(500, result.get('error', 'Failed to stop streams'))
     
     return result
+@router.post("/cleanup-orphans")
+def cleanup_orphaned_processes(db: Session = Depends(get_db)):
+    """
+    Force cleanup of orphaned FFmpeg processes.
+    
+    Returns:
+        Cleanup result
+    """
+    return stream_control.force_cleanup_orphaned_processes(db)

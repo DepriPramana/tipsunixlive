@@ -98,8 +98,13 @@
                             </div>
                         </div>
                         <div class="col-md-4 text-end">
-                            <button class="btn btn-danger btn-lg" onclick="stopStream()">
+                            <button class="btn btn-danger btn-lg mb-2" onclick="stopStream()">
                                 <i class="bi bi-stop-circle"></i> Stop Stream
+                            </button>
+                            <br>
+                            <button class="btn btn-outline-danger btn-sm" onclick="emergencyCleanup()"
+                                title="Kill all orphaned FFmpeg processes if you see 'More than one ingestion' error">
+                                <i class="bi bi-exclamation-triangle"></i> Emergency Cleanup
                             </button>
                         </div>
                     </div>
@@ -642,6 +647,24 @@
             setTimeout(() => location.reload(), 500);
         } catch (error) {
             showToast('Failed to refresh status', 'danger');
+        }
+    }
+
+    // Emergency Cleanup
+    async function emergencyCleanup() {
+        if (!confirm('AWAS: Ini akan mematikan paksa semua proses FFmpeg yang tidak dikenal sistem.\n\nGunakan ini HANYA jika Anda melihat error "More than one ingestion" di YouTube.\n\nLanjutkan?')) return;
+
+        try {
+            const response = await axios.post('/live/cleanup-orphans');
+            const data = response.data;
+            if (data.killed_count > 0) {
+                showToast(`Cleanup Berhasil! Mematikan ${data.killed_count} proses liar.`, 'success');
+            } else {
+                showToast('Tidak ada proses liar yang ditemukan.', 'info');
+            }
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            showToast('Gagal melakukan cleanup: ' + (error.response?.data?.detail || 'Error'), 'danger');
         }
     }
 

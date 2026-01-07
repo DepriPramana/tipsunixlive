@@ -95,6 +95,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>ID</th>
+                        <th>Stream Key</th>
                         <th>Mode</th>
                         <th>Start Time</th>
                         <th>Duration</th>
@@ -106,6 +107,15 @@
                     {% for session in history %}
                     <tr>
                         <td>#{{ session.id }}</td>
+                        <td>
+                            {% if session.stream_key_rel %}
+                            <span class="badge bg-secondary">{{ session.stream_key_rel.name }}</span>
+                            {% elif session.stream_key and session.stream_key.name %}
+                            <span class="badge bg-secondary">{{ session.stream_key.name }}</span>
+                            {% else %}
+                            <span class="text-muted">Default</span>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge bg-info">{{ session.mode }}</span>
                             {% if session.playlist_id %}
