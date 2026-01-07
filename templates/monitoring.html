@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+
+{% block title %}Live Monitoring - YouTube Live Streaming{% endblock %}
+
+{% block extra_css %}
+<style>
+    .session-card {
+        border-left: 4px solid #dc3545;
+        transition: all 0.3s;
+    }
+
+    .session-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .runtime-display {
+        font-family: 'Courier New', monospace;
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #dc3545;
+    }
+
+    .live-pulse {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .stopping {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-broadcast-pin"></i> Live Monitoring Dashboard</h2>
+    <p class="text-muted">Real-time monitoring untuk semua active live streams</p>
+</div>
+
+<!-- System Resource Monitor (NEW) -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #6f42c1;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="text-muted mb-0">CPU Usage</h6>
+                    <span class="badge bg-purple-light text-purple" id="cpuLabel">0%</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div id="cpuBar" class="progress-bar bg-purple" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #fd7e14;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="text-muted mb-0">RAM Usage</h6>
+                    <span class="badge bg-orange-light text-orange" id="ramLabel">0/0 GB</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div id="ramBar" class="progress-bar bg-orange" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #20c997;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="text-muted mb-0">Disk Usage</h6>
+                    <span class="badge bg-teal-light text-teal" id="diskLabel">0%</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div id="diskBar" class="progress-bar bg-teal" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+
+    .bg-purple-light {
+        background-color: #e2d9f3 !important;
+    }
+
+    .bg-orange {
+        background-color: #fd7e14 !important;
+    }
+
+    .text-orange {
+        color: #fd7e14 !important;
+    }
+
+    .bg-orange-light {
+        background-color: #fff0e6 !important;
+    }
+
+    .bg-teal {
+        background-color: #20c997 !important;
+    }
+
+    .text-teal {
+        color: #20c997 !important;
+    }
+
+    .bg-teal-light {
+        background-color: #e9f9f4 !important;
+    }
+</style>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #dc3545;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Active Streams</h6>
+                        <h2 class="mb-0" id="totalActive">{{ total_active }}</h2>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="bi bi-broadcast"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #0d6efd;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Stream Keys</h6>
+                        <h2 class="mb-0">{{ total_keys }}</h2>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-key"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card border-0 shadow-sm" style="border-left: 4px solid #198754;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Last Update</h6>
+                        <h6 class="mb-0" id="lastUpdate">Just now</h6>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Sessions -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-list"></i> Active Live Sessions</h4>
+</div>
+
+<div id="sessionsContainer" class="row g-4">
+    {% if sessions %}
+    {% for session in sessions %}
+    <div class="col-md-6" id="session-{{ session.id }}">
+        <div class="card session-card border-0 shadow-sm">
+            <div class="card-header bg-danger bg-opacity-10">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-danger">
+                        <span class="live-pulse">🔴</span>
+                        LIVE - Session #{{ session.id }}
+                    </h5>
+                    <span class="badge bg-danger">{{ session.mode }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Stream Key</small>
+                        <strong>{{ session.stream_key_name }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Content</small>
+                        <strong>{{ session.content_name }}</strong>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Runtime</small>
+                        <div class="runtime-display" data-start="{{ session.start_time }}">
+                            00:00:00
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Limit</small>
+                        <strong>
+                            {% if session.max_duration_hours %}
+                            {{ session.max_duration_hours }} Hours
+                            {% else %}
+                            24/7 (Unlimited)
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">FFmpeg PID</small>
+                        <code class="fs-5">{{ session.ffmpeg_pid }}</code>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <small class="text-muted d-block mb-2">Started</small>
+                        <small>{{ session.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white">
+                <button class="btn btn-danger w-100 stop-stream-btn" data-session-id="{{ session.id }}">
+                    <i class="bi bi-stop-circle"></i> Stop Stream
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-pause-circle text-muted" style="font-size: 4rem;"></i>
+                <h4 class="mt-3 text-muted">No Active Streams</h4>
+                <p class="text-muted">Start a live stream to see it here</p>
+                <a href="/admin/live" class="btn btn-primary mt-3">
+                    <i class="bi bi-play-circle"></i> Start Live Stream
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="/dashboard/stream-keys" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-key"></i> Stream Keys
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/live" class="btn btn-outline-success w-100">
+                            <i class="bi bi-play-circle"></i> Start Live
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/calendar" class="btn btn-outline-warning w-100">
+                            <i class="bi bi-calendar-event"></i> Schedule Live
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/history" class="btn btn-outline-info w-100">
+                            <i class="bi bi-clock-history"></i> History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Live Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewTitle">Live Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="ratio ratio-16x9">
+                    <iframe id="previewIframe" src="" title="YouTube video player" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Helper for duration calculation
+    function formatRuntime(startTimeString) {
+        if (!startTimeString) return '00:00:00';
+        const startTime = new Date(startTimeString);
+        const now = new Date();
+        const diff = Math.floor((now - startTime) / 1000);
+        if (diff < 0) return '00:00:00';
+
+        const hours = Math.floor(diff / 3600);
+        const minutes = Math.floor((diff % 3600) / 60);
+        const seconds = diff % 60;
+
+        return String(hours).padStart(2, '0') + ':' +
+            String(minutes).padStart(2, '0') + ':' +
+            String(seconds).padStart(2, '0');
+    }
+
+    // Update runtime counters
+    function updateRuntimes() {
+        document.querySelectorAll('.runtime-display').forEach(display => {
+            display.textContent = formatRuntime(display.dataset.start);
+        });
+    }
+
+    // WebSocket logic
+    let ws;
+    function connectWS() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/monitoring`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+            document.getElementById('lastUpdate').textContent = 'Live Connected';
+            document.getElementById('lastUpdate').parentElement.parentElement.style.borderLeftColor = '#198754';
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'status_update') {
+                updateDashboard(data.sessions);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected. Retrying in 5s...');
+            document.getElementById('lastUpdate').textContent = 'Disconnected (Retrying...)';
+            document.getElementById('lastUpdate').parentElement.parentElement.style.borderLeftColor = '#ffc107';
+            setTimeout(connectWS, 5000);
+        };
+    }
+
+    function updateDashboard(sessions) {
+        const container = document.getElementById('sessionsContainer');
+        document.getElementById('totalActive').textContent = sessions.length;
+        document.getElementById('lastUpdate').textContent = 'Just now';
+
+        // If sessions list is empty
+        if (sessions.length === 0) {
+            container.innerHTML = `
+                <div class="col-md-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center py-5">
+                            <i class="bi bi-pause-circle text-muted" style="font-size: 4rem;"></i>
+                            <h4 class="mt-3 text-muted">No Active Streams</h4>
+                            <p class="text-muted">Start a live stream to see it here</p>
+                            <a href="/admin/live" class="btn btn-primary mt-3">
+                                <i class="bi bi-play-circle"></i> Start Live Stream
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Update or create session cards
+        sessions.forEach(session => {
+            let sessionEl = document.getElementById(`session-${session.id}`);
+
+            const statusClass = session.status === 'running' ? 'danger' : 'warning';
+            const statusIcon = session.status === 'running' ? '🔴' : '🔄';
+            const statusLabel = session.status === 'running' ? 'LIVE' : 'RECOVERING';
+            const restartInfo = session.restart_count > 0 ? `<br><small class="text-warning">Restarts: ${session.restart_count}</small>` : '';
+
+            const content = `
+                <div class="card session-card border-0 shadow-sm" style="border-left: 4px solid var(--bs-${statusClass})">
+                    <div class="card-header bg-${statusClass} bg-opacity-10">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-${statusClass}">
+                                <span class="${session.status === 'running' ? 'live-pulse' : ''}">${statusIcon}</span>
+                                ${statusLabel} - Session #${session.id}
+                            </h5>
+                            <span class="badge bg-${statusClass}">${session.mode}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Stream Key</small>
+                                <strong>${session.stream_key_name}</strong>
+                                ${restartInfo}
+                            </div>
+                            <div class="col-md-6 text-end">
+                                ${session.youtube_id ? `
+                                <button class="btn btn-sm btn-outline-danger" onclick="openPreview('${session.youtube_id}', '${session.stream_key_name}')">
+                                    <i class="bi bi-play-btn"></i> Preview Live
+                                </button>
+                                ` : `
+                                <small class="text-muted">No Preview Available</small>
+                                `}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Runtime</small>
+                                <div class="runtime-display" data-start="${session.start_time}">
+                                    ${formatRuntime(session.start_time)}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Limit</small>
+                                <strong>${session.max_duration_hours ? session.max_duration_hours + ' Hours' : '24/7 (Unlimited)'}</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">FFmpeg PID</small>
+                                <code class="fs-5">${session.ffmpeg_pid || 'N/A'}</code>
+                            </div>
+                        </div>
+
+                        ${session.last_error ? `
+                        <div class="alert alert-warning py-1 px-2 mb-0 mt-2">
+                            <small><i class="bi bi-exclamation-triangle"></i> Last: ${session.last_error}</small>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="card-footer bg-white">
+                        <button class="btn btn-danger w-100 stop-stream-btn" data-session-id="${session.id}">
+                            <i class="bi bi-stop-circle"></i> Stop Stream
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            if (!sessionEl) {
+                sessionEl = document.createElement('div');
+                sessionEl.className = 'col-md-6';
+                sessionEl.id = `session-${session.id}`;
+                container.appendChild(sessionEl);
+            }
+            sessionEl.innerHTML = content;
+        });
+
+        // Remove sessions that are no longer active
+        const activeIds = sessions.map(s => `session-${s.id}`);
+        document.querySelectorAll('[id^="session-"]').forEach(el => {
+            if (!activeIds.includes(el.id)) {
+                el.remove();
+            }
+        });
+    }
+
+    // Start WebSocket
+    connectWS();
+
+    // Update runtimes every second
+    setInterval(updateRuntimes, 1000);
+    updateRuntimes();
+
+    // Event delegation for stop stream buttons
+    document.addEventListener('click', async function (e) {
+        if (e.target.closest('.stop-stream-btn')) {
+            const button = e.target.closest('.stop-stream-btn');
+            const sessionId = parseInt(button.dataset.sessionId);
+
+            if (!confirm('Are you sure you want to stop this stream?')) return;
+
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Stopping...';
+
+            try {
+                await axios.post(`/live/stop/${sessionId}`);
+                showToast('Stream stopped successfully!', 'success');
+                // WebSocket will handle card removal
+            } catch (error) {
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Stream';
+                showToast(error.response?.data?.detail || 'Failed to stop stream', 'danger');
+            }
+        }
+    });
+
+    // System Stats logic
+    async function updateSystemStats() {
+        try {
+            const response = await axios.get('/dashboard/api/system-stats');
+            const stats = response.data;
+
+            // CPU
+            document.getElementById('cpuLabel').textContent = `${stats.cpu.percent}%`;
+            document.getElementById('cpuBar').style.width = `${stats.cpu.percent}%`;
+
+            // RAM
+            document.getElementById('ramLabel').textContent = `${stats.memory.used_gb}/${stats.memory.total_gb} GB`;
+            document.getElementById('ramBar').style.width = `${stats.memory.percent}%`;
+
+            // Disk
+            document.getElementById('diskLabel').textContent = `${stats.disk.percent}%`;
+            document.getElementById('diskBar').style.width = `${stats.disk.percent}%`;
+
+        } catch (error) {
+            console.error('Failed to fetch system stats:', error);
+        }
+    }
+
+    // Live Preview logic
+    function openPreview(youtubeId, title) {
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        document.getElementById('previewTitle').textContent = `Live Preview: ${title}`;
+        document.getElementById('previewIframe').src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1`;
+        modal.show();
+
+        // Stop video when modal closed
+        document.getElementById('previewModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('previewIframe').src = '';
+        });
+    }
+
+    // Poll system stats every 5 seconds
+    setInterval(updateSystemStats, 5000);
+    updateSystemStats();
+</script>
+{% endblock %}

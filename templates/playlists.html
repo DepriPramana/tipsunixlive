@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Playlists - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-list-ul"></i> Playlists</h2>
+        <p class="text-muted">Manage video playlists for streaming</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
+        <i class="bi bi-plus-circle"></i> Create Playlist
+    </button>
+</div>
+
+<!-- Playlists List -->
+<div class="row g-4">
+    {% for playlist in playlists %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary bg-opacity-10">
+                <h5 class="mb-0">{{ playlist.name }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="badge bg-info me-2">
+                        <i class="bi bi-play-circle"></i> {{ playlist.video_ids|length }} videos
+                    </span>
+                    <span class="badge bg-secondary">
+                        <i class="bi bi-shuffle"></i> {{ playlist.mode }}
+                    </span>
+                </div>
+
+                <p class="text-muted small mb-3">
+                    Created: {{ playlist.created_at.strftime('%Y-%m-%d %H:%M') if playlist.created_at else 'N/A' }}
+                </p>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-sm btn-success" onclick="startPlaylist('{{ playlist.id }}')">
+                        <i class="bi bi-broadcast"></i> Start Live
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="viewPlaylist('{{ playlist.id }}')">
+                        <i class="bi bi-eye"></i> View Videos
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="editPlaylist('{{ playlist.id }}')">
+                        <i class="bi bi-pencil"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-playlist-btn" data-playlist-id="{{ playlist.id }}"
+                        data-playlist-name="{{ playlist.name }}">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not playlists %}
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="text-muted mt-3">No playlists found</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
+                    <i class="bi bi-plus-circle"></i> Create Your First Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Playlist Modal -->
+<div class="modal fade" id="createPlaylistModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createPlaylistForm">
+                    <div class="mb-3">
+                        <label class="form-label">Playlist Name</label>
+                        <input type="text" class="form-control" id="playlistName" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select" id="playlistMode">
+                            <option value="sequence">Sequence (Play in order)</option>
+                            <option value="random">Random (Shuffle)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Videos</label>
+                        <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                            {% for video in videos %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="{{ video.id }}"
+                                    id="video{{ video.id }}">
+                                <label class="form-check-label" for="video{{ video.id }}">
+                                    {{ video.name }} <small class="text-muted">({{ video.duration }})</small>
+                                </label>
+                            </div>
+                            {% endfor %}
+
+                            {% if not videos %}
+                            <p class="text-muted mb-0">No videos available. Please upload videos first.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createPlaylist()">Create Playlist</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Create playlist
+    async function createPlaylist() {
+        const name = document.getElementById('playlistName').value;
+        const mode = document.getElementById('playlistMode').value;
+
+        // Get selected videos
+        const checkboxes = document.querySelectorAll('.form-check-input:checked');
+        const videoIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (!name) {
+            showToast('Please enter playlist name', 'danger');
+            return;
+        }
+
+        if (videoIds.length === 0) {
+            showToast('Please select at least one video', 'danger');
+            return;
+        }
+
+        try {
+            await axios.post('/playlists', {
+                name: name,
+                mode: mode,
+                video_ids: videoIds
+            });
+
+            showToast('Playlist created successfully!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to create playlist', 'danger');
+        }
+    }
+
+    // Start playlist
+    async function startPlaylist(playlistId) {
+        if (!confirm('Start live streaming with this playlist?')) return;
+
+        try {
+            await axios.post('/live/start', {
+                playlist_id: parseInt(playlistId),
+                loop: true
+            });
+
+            showToast('Stream started!', 'success');
+            setTimeout(() => window.location.href = '/admin/live', 1000);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
+        }
+    }
+
+    // View playlist videos
+    function viewPlaylist(playlistId) {
+        // Future: Show modal with video list
+        showToast('View feature coming soon', 'info');
+    }
+
+    // Edit playlist
+    function editPlaylist(playlistId) {
+        // Future: Show edit modal
+        showToast('Edit feature coming soon', 'info');
+    }
+
+    // Delete playlist
+    async function deletePlaylist(playlistId, name) {
+        if (!confirm(`Delete playlist "${name}"?`)) return;
+
+        try {
+            await axios.delete(`/playlists/${parseInt(playlistId)}`);
+            showToast('Playlist deleted!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to delete playlist', 'danger');
+        }
+    }
+
+    // Add event listeners for delete buttons
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.delete-playlist-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const playlistId = this.dataset.playlistId;
+                const playlistName = this.dataset.playlistName;
+                deletePlaylist(playlistId, playlistName);
+            });
+        });
+    });
+
+</script>
+{% endblock %}

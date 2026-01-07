@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube Broadcasts - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2><i class="bi bi-youtube"></i> YouTube Broadcasts</h2>
+            <p class="text-muted">Manage your YouTube live broadcasts</p>
+        </div>
+        <a href="/admin/youtube/create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Broadcast
+        </a>
+    </div>
+
+    <!-- Account Filter -->
+    <div class="card bg-light border-0">
+        <div class="card-body">
+            <form id="accountFilterForm" class="row align-items-center">
+                <div class="col-auto">
+                    <label class="form-label mb-0 fw-bold">Viewing Channel:</label>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" id="accountSelector"
+                        onchange="window.location.href='/admin/youtube/broadcasts?account_id=' + this.value">
+                        {% for account in youtube_accounts %}
+                        <option value="{{ account.id }}" {% if account.id==active_account_id %}selected{% endif %}>
+                            {{ account.name }} ({{ account.channel_title }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if not youtube_accounts %}
+                <div class="col-auto">
+                    <span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> No accounts
+                        connected.</span>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if error_message %}
+<!-- Error Alert -->
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> YouTube API Not Available</h5>
+    <p class="mb-0">{{ error_message }}</p>
+    {% if 'client_secrets.json' in error_message %}
+    <hr>
+    <p class="mb-0 small">
+        <strong>Setup Instructions:</strong><br>
+        1. Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a><br>
+        2. Enable YouTube Data API v3<br>
+        3. Create OAuth 2.0 credentials<br>
+        4. Download as <code>client_secrets.json</code><br>
+        5. Place in project root
+    </p>
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- Broadcasts List -->
+{% if youtube_available %}
+<div class="row g-4">
+    {% if broadcasts %}
+    {% for broadcast in broadcasts %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-danger bg-opacity-10">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h5 class="mb-0">{{ broadcast.snippet.title }}</h5>
+                    <span class="badge 
+                            {% if broadcast.status.lifeCycleStatus == 'live' %}bg-danger
+                            {% elif broadcast.status.lifeCycleStatus == 'ready' %}bg-success
+                            {% elif broadcast.status.lifeCycleStatus == 'complete' %}bg-secondary
+                            {% elif broadcast.status.lifeCycleStatus == 'testing' %}bg-warning
+                            {% else %}bg-info
+                            {% endif %}">
+                        {{ broadcast.status.lifeCycleStatus }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Broadcast Info -->
+                <div class="mb-3">
+                    <small class="text-muted d-block">
+                        <i class="bi bi-calendar"></i>
+                        {{ broadcast.snippet.scheduledStartTime if broadcast.snippet.scheduledStartTime else 'Not
+                        scheduled' }}
+                    </small>
+                    <small class="text-muted d-block">
+                        <i class="bi bi-eye"></i>
+                        Privacy: <span class="badge bg-secondary">{{ broadcast.status.privacyStatus }}</span>
+                    </small>
+                </div>
+
+                <!-- Description -->
+                {% if broadcast.snippet.description %}
+                <p class="text-muted small mb-3" style="max-height: 60px; overflow: hidden;">
+                    {{ broadcast.snippet.description[:100] }}{% if broadcast.snippet.description|length > 100 %}...{%
+                    endif %}
+                </p>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="d-grid gap-2">
+                    <a href="https://www.youtube.com/watch?v={{ broadcast.id }}" target="_blank"
+                        class="btn btn-sm btn-danger">
+                        <i class="bi bi-youtube"></i> View on YouTube
+                    </a>
+
+                    <button class="btn btn-sm btn-info copy-broadcast-id-btn" data-broadcast-id="{{ broadcast.id }}">
+                        <i class="bi bi-clipboard"></i> Copy Broadcast ID
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-danger delete-broadcast-btn"
+                        data-broadcast-id="{{ broadcast.id }}" data-broadcast-title="{{ broadcast.snippet.title }}">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <!-- No Broadcasts -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-youtube" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="text-muted mt-3">No broadcasts found</p>
+                <a href="/admin/youtube/create" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create Your First Broadcast
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Stream Keys Section -->
+<div class="mt-5">
+    <h4><i class="bi bi-key"></i> YouTube Stream Keys</h4>
+    <p class="text-muted">Stream keys created via YouTube API</p>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Stream Key</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if youtube_stream_keys %}
+                {% for key in youtube_stream_keys %}
+                <tr>
+                    <td>{{ key.name }}</td>
+                    <td>
+                        <code class="stream-key-masked">{{ key.stream_key[:8] }}...{{ key.stream_key[-4:] }}</code>
+                    </td>
+                    <td>
+                        <span class="badge 
+                                {% if key.status == 'streaming' %}bg-danger
+                                {% elif key.status == 'idle' %}bg-success
+                                {% else %}bg-secondary
+                                {% endif %}">
+                            {{ key.status }}
+                        </span>
+                    </td>
+                    <td>{{ key.created_at.strftime('%Y-%m-%d %H:%M') if key.created_at else 'N/A' }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info copy-stream-key-btn" data-stream-key="{{ key.stream_key }}">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        No stream keys found. Create a broadcast to generate stream keys.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Copy Broadcast ID
+    document.querySelectorAll('.copy-broadcast-id-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const broadcastId = this.dataset.broadcastId;
+            navigator.clipboard.writeText(broadcastId).then(() => {
+                showToast('Broadcast ID copied to clipboard!', 'success');
+            }).catch(err => {
+                showToast('Failed to copy', 'danger');
+            });
+        });
+    });
+
+    // Copy Stream Key
+    document.querySelectorAll('.copy-stream-key-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const streamKey = this.dataset.streamKey;
+            navigator.clipboard.writeText(streamKey).then(() => {
+                showToast('Stream key copied to clipboard!', 'success');
+            }).catch(err => {
+                showToast('Failed to copy', 'danger');
+            });
+        });
+    });
+
+    // Delete Broadcast
+    document.querySelectorAll('.delete-broadcast-btn').forEach(button => {
+        button.addEventListener('click', async function () {
+            const broadcastId = this.dataset.broadcastId;
+            const broadcastTitle = this.dataset.broadcastTitle;
+
+            if (!confirm(`Delete broadcast "${broadcastTitle}"?\n\nThis will permanently delete the broadcast from YouTube.`)) {
+                return;
+            }
+
+            try {
+                const accountId = document.getElementById('accountSelector')?.value;
+                const url = accountId ? `/youtube/broadcast/${broadcastId}?account_id=${accountId}` : `/youtube/broadcast/${broadcastId}`;
+                await axios.delete(url);
+                showToast('Broadcast deleted successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to delete broadcast', 'danger');
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+# YouTube API credentials & Tokens
+client_secrets.json
+client_secret.json
+*.pickle
+
+# Environment variables
+.env
+
+# Database
+data.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/

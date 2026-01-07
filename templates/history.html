@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Live History - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-clock-history"></i> Live Streaming History</h2>
+    <p class="text-muted">View past streaming sessions and statistics</p>
+</div>
+
+<!-- Statistics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Total Sessions</p>
+                        <h3 class="mb-0" id="totalSessions">0</h3>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-broadcast"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Success Rate</p>
+                        <h3 class="mb-0" id="successRate">0%</h3>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Total Hours</p>
+                        <h3 class="mb-0" id="totalHours">0h</h3>
+                    </div>
+                    <div class="stat-icon bg-info bg-opacity-10 text-info">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Failed</p>
+                        <h3 class="mb-0" id="failedSessions">0</h3>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="bi bi-x-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Table -->
+<div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Session History</h5>
+        <div>
+            <select class="form-select form-select-sm" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="success">Success</option>
+                <option value="running">Running</option>
+                <option value="stopped">Stopped</option>
+                <option value="failed">Failed</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Mode</th>
+                        <th>Start Time</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    {% for session in history %}
+                    <tr>
+                        <td>#{{ session.id }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ session.mode }}</span>
+                            {% if session.playlist_id %}
+                            <small class="text-muted">Playlist #{{ session.playlist_id }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ session.start_time.strftime('%Y-%m-%d %H:%M') if session.start_time else '-' }}</td>
+                        <td>{{ session.get_duration_formatted() }}</td>
+                        <td>
+                            {% if session.status == 'success' %}
+                            <span class="badge bg-success">Success</span>
+                            {% elif session.status == 'running' %}
+                            <span class="badge bg-primary">Running</span>
+                            {% elif session.status == 'stopped' %}
+                            <span class="badge bg-warning">Stopped</span>
+                            {% else %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewDetails({{ session.id }})"
+                                title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            {% if session.status != 'running' %}
+                            <button class="btn btn-sm btn-danger" onclick="instantReStream({{ session.id }})"
+                                title="Instant Re-Stream (Start Now)">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="reLive({{ session.id }})"
+                                title="Schedule Re-Live">
+                                <i class="bi bi-calendar-plus"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not history %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            No history found
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load statistics
+    async function loadStatistics() {
+        try {
+            const response = await axios.get('/history/statistics/summary');
+            const stats = response.data;
+
+            document.getElementById('totalSessions').textContent = stats.total_sessions || 0;
+            document.getElementById('successRate').textContent = (stats.success_rate || 0).toFixed(1) + '%';
+            document.getElementById('totalHours').textContent = Math.round(stats.total_hours || 0) + 'h';
+            document.getElementById('failedSessions').textContent = stats.failed_sessions || 0;
+        } catch (error) {
+            console.error('Failed to load statistics');
+        }
+    }
+
+    // View details
+    function viewDetails(sessionId) {
+        showToast('View details feature coming soon', 'info');
+    }
+
+    // Instant Re-Stream
+    async function instantReStream(sessionId) {
+        if (!confirm('Apakah Anda yakin ingin memulai streaming ulang sesi ini sekarang? \n(Akan menggunakan Stream Key yang sama jika tersedia)')) return;
+
+        try {
+            const response = await axios.post('/history/instant-re-live', {
+                history_id: sessionId
+            });
+
+            showToast('Instant Re-Stream started successfully!', 'success');
+            setTimeout(() => window.location.href = '/dashboard/monitoring', 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to start Instant Re-Stream', 'danger');
+        }
+    }
+
+    // Re-live (Schedule)
+    async function reLive(sessionId) {
+        const scheduledTime = prompt('Enter scheduled time (YYYY-MM-DD HH:MM):');
+
+        if (!scheduledTime) return;
+
+        try {
+            await axios.post('/history/re-live', {
+                history_id: sessionId,
+                scheduled_time: scheduledTime
+            });
+
+            showToast('Stream re-scheduled successfully!', 'success');
+            setTimeout(() => window.location.href = '/admin/calendar', 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to re-schedule', 'danger');
+        }
+    }
+
+    // Filter by status
+    document.getElementById('statusFilter').addEventListener('change', function () {
+        const status = this.value;
+        const rows = document.querySelectorAll('#historyTableBody tr');
+
+        rows.forEach(row => {
+            if (!status || row.textContent.toLowerCase().includes(status.toLowerCase())) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // Load statistics on page load
+    loadStatistics();
+</script>
+{% endblock %}

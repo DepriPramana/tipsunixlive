@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Download from Google Drive - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-cloud-arrow-down"></i> Download from Google Drive</h2>
+    <p class="text-muted">Download video dari Google Drive</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form id="downloadForm">
+                    <div class="mb-3">
+                        <label class="form-label">Google Drive URL</label>
+                        <input type="url" class="form-control" id="gdriveUrl"
+                            placeholder="https://drive.google.com/file/d/FILE_ID/view" required>
+                        <div class="form-text">
+                            Paste Google Drive share link here
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Filename (Optional)</label>
+                        <input type="text" class="form-control" id="filename" placeholder="my_video.mp4">
+                        <div class="form-text">
+                            Leave empty to use original filename
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div id="downloadProgress" class="d-none">
+                            <div class="alert alert-info">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                Downloading from Google Drive...
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="downloadBtn">
+                        <i class="bi bi-download"></i> Download Video
+                    </button>
+                    <a href="/admin/videos" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Videos
+                    </a>
+                </form>
+
+                <!-- Result -->
+                <div id="downloadResult" class="mt-4 d-none">
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle"></i> Download Complete!</h5>
+                        <div id="resultDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('downloadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const gdriveUrl = document.getElementById('gdriveUrl').value;
+        const filename = document.getElementById('filename').value;
+
+        const downloadBtn = document.getElementById('downloadBtn');
+        const progressDiv = document.getElementById('downloadProgress');
+        const resultDiv = document.getElementById('downloadResult');
+
+        downloadBtn.disabled = true;
+        progressDiv.classList.remove('d-none');
+        resultDiv.classList.add('d-none');
+
+        try {
+            const response = await axios.post('/gdrive/download', {
+                gdrive_url: gdriveUrl,
+                filename: filename || null
+            });
+
+            const data = response.data;
+
+            // Show result
+            document.getElementById('resultDetails').innerHTML = `
+                <p class="mb-1"><strong>Video ID:</strong> ${data.id}</p>
+                <p class="mb-1"><strong>Name:</strong> ${data.name}</p>
+                <p class="mb-1"><strong>Duration:</strong> ${data.duration}</p>
+                <p class="mb-1"><strong>Resolution:</strong> ${data.resolution}</p>
+                <p class="mb-1"><strong>Size:</strong> ${formatFileSize(data.file_size)}</p>
+                <p class="mb-0"><strong>Codec:</strong> ${data.codec}</p>
+            `;
+
+            progressDiv.classList.add('d-none');
+            resultDiv.classList.remove('d-none');
+
+            showToast('Video downloaded successfully!', 'success');
+
+            // Reset form
+            document.getElementById('downloadForm').reset();
+            downloadBtn.disabled = false;
+
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Download failed', 'danger');
+            downloadBtn.disabled = false;
+            progressDiv.classList.add('d-none');
+        }
+    });
+</script>
+{% endblock %}

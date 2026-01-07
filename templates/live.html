@@ -1,0 +1,653 @@
+{% extends "base.html" %}
+
+{% block title %}Live Streaming Control - YouTube Live Streaming{% endblock %}
+
+{% block extra_css %}
+<style>
+    .control-card {
+        border-left: 4px solid;
+        transition: all 0.3s;
+    }
+
+    .control-card:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .control-card.manual {
+        border-left-color: #28a745;
+    }
+
+    .control-card.scheduled {
+        border-left-color: #ffc107;
+    }
+
+    .control-card.playlist {
+        border-left-color: #007bff;
+    }
+
+    .control-card.stop {
+        border-left-color: #dc3545;
+    }
+
+    .status-live {
+        animation: pulse-live 2s infinite;
+    }
+
+    @keyframes pulse-live {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.6;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-broadcast-pin"></i> Live Streaming Control</h2>
+    <p class="text-muted">Kontrol dan kelola live streaming YouTube</p>
+</div>
+
+<!-- Current Stream Status -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-activity"></i> Current Status</h5>
+            </div>
+            <div class="card-body" id="streamStatusCard">
+                {% if stream_status.is_streaming %}
+                <div class="alert alert-success status-live mb-0">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-2">
+                                <span class="streaming-indicator active"></span>
+                                <strong>LIVE STREAMING</strong>
+                            </h4>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Mode</small>
+                                    <strong>{{ stream_status.mode }}</strong>
+                                </div>
+                                {% if stream_status.playlist_id %}
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Playlist ID</small>
+                                    <strong>#{{ stream_status.playlist_id }}</strong>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Session ID</small>
+                                    <strong>#{{ stream_status.session_id }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-danger btn-lg" onclick="stopStream()">
+                                <i class="bi bi-stop-circle"></i> Stop Stream
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-0">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-2">
+                                <span class="streaming-indicator inactive"></span>
+                                <strong>NO ACTIVE STREAM</strong>
+                            </h4>
+                            <p class="mb-0">Pilih salah satu metode di bawah untuk memulai streaming</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-secondary p-3">Offline</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Methods -->
+<div class="row g-4">
+    <!-- Manual Live (Single Video) -->
+    <div class="col-md-6">
+        <div class="card control-card manual border-0 shadow-sm h-100">
+            <div class="card-header bg-success bg-opacity-10">
+                <h5 class="mb-0 text-success">
+                    <i class="bi bi-play-circle"></i> Manual Live (Single Video)
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Stream single video langsung ke YouTube</p>
+
+                <form id="manualLiveForm">
+                    <!-- NEW: Stream Key Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-key"></i> Select Stream Key
+                        </label>
+                        <select class="form-select" id="manualStreamKeySelect" required>
+                            <option value="">-- Select Stream Key --</option>
+                            {% if stream_keys %}
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">
+                                {{ key.name }}
+                                {% if key.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="" disabled>No stream keys available</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            Manage stream keys in <a href="/dashboard/stream-keys" target="_blank">Stream Keys
+                                Dashboard</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Video</label>
+                        <select class="form-select" id="manualVideoSelect" required>
+                            <option value="">-- Select Video --</option>
+                            {% if videos %}
+                            <optgroup label="Video Library">
+                                {% for video in videos %}
+                                <option value="{{ video.id }}">{{ video.name }} ({{ video.duration }})</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            Pilih video tunggal untuk disiarkan langsung.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="manualDurationSelect">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                        <div class="form-text">Siaran akan berhenti otomatis setelah waktu habis.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="manualLoop" checked>
+                            <label class="form-check-label" for="manualLoop">
+                                Loop video (repeat continuously)
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100" id="manualSubmitBtn">
+                        <i class="bi bi-broadcast"></i> Start Manual Live
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Live -->
+    <div class="col-md-6">
+        <div class="card control-card playlist border-0 shadow-sm h-100">
+            <div class="card-header bg-primary bg-opacity-10">
+                <h5 class="mb-0 text-primary">
+                    <i class="bi bi-list-ul"></i> Playlist Live
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Stream playlist dengan multiple videos</p>
+
+                <form id="playlistLiveForm">
+                    <!-- NEW: Stream Key Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-key"></i> Select Stream Key
+                        </label>
+                        <select class="form-select" id="streamKeySelect" required>
+                            <option value="">-- Select Stream Key --</option>
+                            {% if stream_keys %}
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">
+                                {{ key.name }}
+                                {% if key.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="" disabled>No stream keys available</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            Manage stream keys in <a href="/dashboard/stream-keys" target="_blank">Stream Keys
+                                Dashboard</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Playlist</label>
+                        <select class="form-select" id="playlistSelect" required>
+                            <option value="">-- Select Playlist --</option>
+                            {% for playlist in playlists %}
+                            <option value="{{ playlist.id }}" data-mode="{{ playlist.mode }}"
+                                data-count="{{ playlist.video_ids|length }}">
+                                {{ playlist.name }}
+                                ({{ playlist.video_ids|length }} videos, {{ playlist.mode }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="playlistInfo" style="display: none;">
+                        <div class="alert alert-info mb-0">
+                            <small>
+                                <strong>Mode:</strong> <span id="infoMode"></span><br>
+                                <strong>Videos:</strong> <span id="infoCount"></span>
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="playlistDurationSelect">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                        <div class="form-text">Playlist akan berhenti otomatis setelah waktu habis.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="playlistLoop" checked>
+                            <label class="form-check-label" for="playlistLoop">
+                                Loop 24/7 (infinite loop)
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-broadcast"></i> Start Playlist Live
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheduled Live -->
+    <div class="col-md-6">
+        <div class="card control-card scheduled border-0 shadow-sm h-100">
+            <div class="card-header bg-warning bg-opacity-10">
+                <h5 class="mb-0 text-warning">
+                    <i class="bi bi-calendar-event"></i> Scheduled Live
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Jadwalkan streaming untuk waktu tertentu</p>
+
+                <form id="scheduledLiveForm">
+                    <!-- NEW: Stream Key Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-key"></i> Select Stream Key
+                        </label>
+                        <select class="form-select" id="scheduleStreamKeySelect" required>
+                            <option value="">-- Select Stream Key --</option>
+                            {% if stream_keys %}
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">
+                                {{ key.name }}
+                                {% if key.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="" disabled>No stream keys available</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            Manage stream keys in <a href="/dashboard/stream-keys" target="_blank">Stream Keys
+                                Dashboard</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Playlist</label>
+                        <select class="form-select" id="schedulePlaylistSelect" required>
+                            <option value="">-- Select Playlist --</option>
+                            {% for playlist in playlists %}
+                            <option value="{{ playlist.id }}">
+                                {{ playlist.name }} ({{ playlist.video_ids|length }} videos)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Schedule Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduleDateTime" required>
+                        <div class="form-text">Select future date and time</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="bi bi-clock"></i> Schedule Live
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stop Live -->
+    <div class="col-md-6">
+        <div class="card control-card stop border-0 shadow-sm h-100">
+            <div class="card-header bg-danger bg-opacity-10">
+                <h5 class="mb-0 text-danger">
+                    <i class="bi bi-stop-circle"></i> Stop Live
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Hentikan streaming yang sedang berjalan</p>
+
+                <div class="mb-3">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Warning:</strong> Stopping the stream will end the current live session.
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-danger" onclick="stopStream()" {% if not stream_status.is_streaming
+                        %}disabled{% endif %}>
+                        <i class="bi bi-stop-circle"></i> Stop Current Stream
+                    </button>
+
+                    <button class="btn btn-outline-warning" onclick="restartStream()" {% if not
+                        stream_status.is_streaming %}disabled{% endif %}>
+                        <i class="bi bi-arrow-clockwise"></i> Restart Stream
+                    </button>
+                </div>
+
+                {% if stream_status.is_streaming %}
+                <div class="mt-3">
+                    <small class="text-muted">
+                        Current session will be saved to history
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="/admin/playlists" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-plus-circle"></i> Create Playlist
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/calendar" class="btn btn-outline-warning w-100">
+                            <i class="bi bi-calendar-event"></i> Schedule
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/history" class="btn btn-outline-info w-100">
+                            <i class="bi bi-clock-history"></i> View History
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-secondary w-100" onclick="refreshStatus()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Manual Live Form
+    document.getElementById('manualLiveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const streamKeyId = document.getElementById('manualStreamKeySelect').value;
+        const videoId = document.getElementById('manualVideoSelect').value;
+        const loop = document.getElementById('manualLoop').checked;
+        const duration = document.getElementById('manualDurationSelect').value;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
+
+        if (!videoId) {
+            showToast('Please select a video', 'danger');
+            return;
+        }
+
+        const btn = document.getElementById('manualSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
+
+        try {
+            const response = await axios.post('/live/manual', {
+                stream_key_id: parseInt(streamKeyId),
+                video_id: parseInt(videoId),
+                mode: 'single',
+                loop: loop,
+                max_duration_hours: parseInt(duration)
+            });
+
+            showToast('Manual stream started successfully!', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to start manual stream', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-broadcast"></i> Start Manual Live';
+        }
+    });
+
+    // Show playlist info when selected
+    document.getElementById('playlistSelect').addEventListener('change', function () {
+        const option = this.options[this.selectedIndex];
+        if (option.value) {
+            document.getElementById('playlistInfo').style.display = 'block';
+            document.getElementById('infoMode').textContent = option.dataset.mode;
+            document.getElementById('infoCount').textContent = option.dataset.count;
+        } else {
+            document.getElementById('playlistInfo').style.display = 'none';
+        }
+    });
+
+    // Playlist Live Form
+    document.getElementById('playlistLiveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const streamKeyId = document.getElementById('streamKeySelect').value;
+        const playlistId = document.getElementById('playlistSelect').value;
+        const loop = document.getElementById('playlistLoop').checked;
+        const duration = document.getElementById('playlistDurationSelect').value;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
+
+        if (!playlistId) {
+            showToast('Please select a playlist', 'danger');
+            return;
+        }
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
+
+        try {
+            // Use new /live/manual endpoint
+            const response = await axios.post('/live/manual', {
+                stream_key_id: parseInt(streamKeyId),
+                playlist_id: parseInt(playlistId),
+                mode: 'playlist',
+                loop: loop,
+                max_duration_hours: parseInt(duration)
+            });
+
+            showToast('Stream started successfully!', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-broadcast"></i> Start Playlist Live';
+        }
+    });
+
+    // Scheduled Live Form
+    document.getElementById('scheduledLiveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const streamKeyId = document.getElementById('scheduleStreamKeySelect').value;
+        const playlistId = document.getElementById('schedulePlaylistSelect').value;
+        const dateTime = document.getElementById('scheduleDateTime').value;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
+
+        if (!playlistId || !dateTime) {
+            showToast('Please fill all fields', 'danger');
+            return;
+        }
+
+        // Convert to ISO format
+        const scheduledTime = new Date(dateTime).toISOString();
+
+        // Check if time is in future
+        if (new Date(dateTime) <= new Date()) {
+            showToast('Scheduled time must be in the future', 'danger');
+            return;
+        }
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scheduling...';
+
+        try {
+            // Use /schedule/create endpoint
+            const response = await axios.post('/schedule/create', {
+                stream_key_id: parseInt(streamKeyId),
+                playlist_id: parseInt(playlistId),
+                scheduled_time: scheduledTime,
+                mode: 'playlist',
+                loop: true
+            });
+
+            showToast('Scheduled successfully for ' + new Date(dateTime).toLocaleString(), 'success');
+
+            // Reset form
+            e.target.reset();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
+
+            // Redirect to calendar page after 1.5s
+            setTimeout(() => window.location.href = '/admin/calendar', 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to schedule', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
+        }
+    });
+
+    // Stop stream
+    async function stopStream() {
+        if (!confirm('Are you sure you want to stop the current stream?')) return;
+
+        try {
+            await axios.post('/live/stop');
+            showToast('Stream stopped successfully!', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to stop stream', 'danger');
+        }
+    }
+
+    // Restart stream
+    async function restartStream() {
+        if (!confirm('Are you sure you want to restart the stream?')) return;
+
+        try {
+            await axios.post('/live/restart');
+            showToast('Stream restarted successfully!', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to restart stream', 'danger');
+        }
+    }
+
+    // Refresh status
+    async function refreshStatus() {
+        try {
+            const response = await axios.get('/live/status');
+            showToast('Status refreshed', 'success');
+            setTimeout(() => location.reload(), 500);
+        } catch (error) {
+            showToast('Failed to refresh status', 'danger');
+        }
+    }
+
+    // Auto-refresh status every 10 seconds
+    setInterval(async () => {
+        try {
+            const response = await axios.get('/live/status');
+            // Update status card without full reload
+            console.log('Status updated:', response.data);
+        } catch (error) {
+            console.error('Failed to fetch status');
+        }
+    }, 10000);
+
+    // Set minimum datetime to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('scheduleDateTime').min = now.toISOString().slice(0, 16);
+</script>
+{% endblock %}

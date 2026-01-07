@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Videos - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-collection-play"></i> Videos</h2>
+        <p class="text-muted">Manage your video library</p>
+    </div>
+    <div>
+        <a href="/admin/upload" class="btn btn-primary">
+            <i class="bi bi-cloud-upload"></i> Upload Video
+        </a>
+        <a href="/admin/download" class="btn btn-success">
+            <i class="bi bi-cloud-arrow-down"></i> Download from GDrive
+        </a>
+    </div>
+</div>
+
+<!-- Search & Filter -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="searchInput" placeholder="Search videos...">
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="sourceFilter">
+            <option value="">All Sources</option>
+            <option value="uploaded">Uploaded</option>
+            <option value="gdrive">Google Drive</option>
+            <option value="downloaded">Downloaded</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="sortBy">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="duration">Duration</option>
+        </select>
+    </div>
+</div>
+
+<!-- Video Stats -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h4 class="mb-0">{{ videos|length }}</h4>
+                        <small class="text-muted">Total Videos</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="mb-0" id="totalDuration">--:--:--</h4>
+                        <small class="text-muted">Total Duration</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="mb-0" id="totalSize">-- GB</h4>
+                        <small class="text-muted">Total Size</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="mb-0" id="avgResolution">--</h4>
+                        <small class="text-muted">Avg Resolution</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Videos Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="videosTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Name</th>
+                        <th style="width: 120px;">Duration</th>
+                        <th style="width: 120px;">Resolution</th>
+                        <th style="width: 100px;">Codec</th>
+                        <th style="width: 100px;">Size</th>
+                        <th style="width: 100px;">Source</th>
+                        <th style="width: 200px;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in videos %}
+                    <tr data-video-id="{{ video.id }}" data-source="{{ video.source }}"
+                        data-name="{{ video.name|lower }}">
+                        <td>{{ video.id }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-play-circle text-primary me-2" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>{{ video.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-camera-video"></i> {{ video.codec or 'unknown' }}
+                                        {% if video.fps %}
+                                        @ {{ "%.0f"|format(video.fps) }} fps
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">
+                                <i class="bi bi-clock"></i> {{ video.duration or '00:00:00' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">
+                                <i class="bi bi-aspect-ratio"></i> {{ video.resolution or 'unknown' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ video.codec or 'N/A' }}</span>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {% if video.file_size %}
+                                <span id="size-{{ video.id }}">{{ (video.file_size / 1024 / 1024)|round(2) }} MB</span>
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            {% if video.source == 'gdrive' %}
+                            <span class="badge bg-success"><i class="bi bi-google"></i> GDrive</span>
+                            {% elif video.source == 'uploaded' %}
+                            <span class="badge bg-primary"><i class="bi bi-upload"></i> Upload</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ video.source }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end table-actions">
+                            <button class="btn btn-sm btn-success"
+                                onclick="liveVideo({{ video.id }}, '{{ video.name }}')" title="Stream this video">
+                                <i class="bi bi-broadcast"></i> Live
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="viewDetails({{ video.id }})"
+                                title="View details">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger"
+                                onclick="deleteVideo({{ video.id }}, '{{ video.name }}')" title="Delete video">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not videos %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                            <p class="text-muted mt-3">No videos found</p>
+                            <a href="/admin/upload" class="btn btn-primary">
+                                <i class="bi bi-cloud-upload"></i> Upload Your First Video
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Video Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-info-circle"></i> Video Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Calculate statistics
+    document.addEventListener('DOMContentLoaded', () => {
+        const videos = {{ videos| tojson
+    }};
+
+    // Total duration
+    let totalSeconds = 0;
+    videos.forEach(v => {
+        if (v.duration_seconds) {
+            totalSeconds += v.duration_seconds;
+        }
+    });
+    document.getElementById('totalDuration').textContent = formatDuration(totalSeconds);
+
+    // Total size
+    let totalBytes = 0;
+    videos.forEach(v => {
+        if (v.file_size) {
+            totalBytes += v.file_size;
+        }
+    });
+    const totalGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
+    document.getElementById('totalSize').textContent = totalGB + ' GB';
+
+    // Average resolution
+    const resolutions = videos.filter(v => v.width && v.height);
+    if (resolutions.length > 0) {
+        const avgWidth = Math.round(resolutions.reduce((sum, v) => sum + v.width, 0) / resolutions.length);
+        const avgHeight = Math.round(resolutions.reduce((sum, v) => sum + v.height, 0) / resolutions.length);
+        document.getElementById('avgResolution').textContent = `${avgWidth}x${avgHeight}`;
+    }
+    });
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', filterVideos);
+    document.getElementById('sourceFilter').addEventListener('change', filterVideos);
+
+    function filterVideos() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const sourceFilter = document.getElementById('sourceFilter').value;
+        const rows = document.querySelectorAll('#videosTable tbody tr[data-video-id]');
+
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            const source = row.getAttribute('data-source');
+
+            const matchesSearch = name.includes(searchTerm);
+            const matchesSource = !sourceFilter || source === sourceFilter;
+
+            row.style.display = (matchesSearch && matchesSource) ? '' : 'none';
+        });
+    }
+
+    // Live video (single video stream)
+    async function liveVideo(videoId, videoName) {
+        if (!confirm(`Start live streaming for "${videoName}"?`)) return;
+
+        try {
+            // For now, we'll show a message
+            // In future, implement single video streaming
+            showToast('Single video streaming will be implemented soon. Please use playlists for now.', 'info');
+
+            // Alternative: redirect to create playlist with this video
+            // window.location.href = `/admin/playlists?video=${videoId}`;
+        } catch (error) {
+            showToast('Failed to start stream', 'danger');
+        }
+    }
+
+    // View video details
+    async function viewDetails(videoId) {
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
+
+        try {
+            // In future, create API endpoint for video details
+            // For now, get from table
+            const videos = {{ videos| tojson
+        }};
+    const video = videos.find(v => v.id === videoId);
+
+    if (video) {
+        document.getElementById('detailsContent').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Basic Info</h6>
+                            <table class="table table-sm">
+                                <tr><td><strong>ID:</strong></td><td>${video.id}</td></tr>
+                                <tr><td><strong>Name:</strong></td><td>${video.name}</td></tr>
+                                <tr><td><strong>Source:</strong></td><td>${video.source}</td></tr>
+                                <tr><td><strong>Path:</strong></td><td><small>${video.path}</small></td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Video Properties</h6>
+                            <table class="table table-sm">
+                                <tr><td><strong>Duration:</strong></td><td>${video.duration || 'N/A'}</td></tr>
+                                <tr><td><strong>Resolution:</strong></td><td>${video.resolution || 'N/A'}</td></tr>
+                                <tr><td><strong>Codec:</strong></td><td>${video.codec || 'N/A'}</td></tr>
+                                <tr><td><strong>FPS:</strong></td><td>${video.fps ? video.fps.toFixed(2) : 'N/A'}</td></tr>
+                                <tr><td><strong>Bitrate:</strong></td><td>${video.bitrate ? (video.bitrate / 1000).toFixed(0) + ' kbps' : 'N/A'}</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-12 mt-3">
+                            <h6>File Info</h6>
+                            <table class="table table-sm">
+                                <tr><td><strong>Size:</strong></td><td>${formatFileSize(video.file_size || 0)}</td></tr>
+                                <tr><td><strong>Format:</strong></td><td>${video.format || 'N/A'}</td></tr>
+                                <tr><td><strong>Audio Codec:</strong></td><td>${video.audio_codec || 'N/A'}</td></tr>
+                                <tr><td><strong>Created:</strong></td><td>${video.created_at || 'N/A'}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                `;
+    }
+        } catch (error) {
+        document.getElementById('detailsContent').innerHTML = `
+                <div class="alert alert-danger">Failed to load details</div>
+            `;
+    }
+    }
+
+    // Delete video
+    async function deleteVideo(videoId, videoName) {
+        if (!confirm(`Are you sure you want to delete "${videoName}"?\n\nThis action cannot be undone.`)) return;
+
+        try {
+            // In future, create DELETE endpoint
+            showToast('Delete functionality will be implemented soon', 'info');
+
+            // Example implementation:
+            // await axios.delete(`/videos/${videoId}`);
+            // showToast('Video deleted successfully', 'success');
+            // setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+            showToast('Failed to delete video', 'danger');
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube Accounts - StreamLive{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-person-video"></i> YouTube Accounts</h2>
+        <p class="text-muted">Kelola beberapa channel YouTube untuk live streaming</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+        <i class="bi bi-plus-circle"></i> Add New Account
+    </button>
+</div>
+
+<!-- Accounts List -->
+<div class="row">
+    {% for account in accounts %}
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-3">
+                        <i class="bi bi-youtube"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">{{ account.name }}</h5>
+                        <small class="text-muted">ID: {{ account.channel_id }}</small>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>Channel:</strong> {{ account.channel_title }}</p>
+                    <p class="mb-1"><strong>Status:</strong>
+                        {% if account.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </p>
+                    <p class="mb-0"><small class="text-muted text-truncate d-block">Token: {{ account.token_filename
+                            }}</small></p>
+                </div>
+
+                <div class="d-flex gap-2 mt-auto">
+                    <form action="/dashboard/youtube-accounts/delete/{{ account.id }}" method="POST"
+                        onsubmit="return confirm('Hapus akun ini? Token akan ikut dihapus.')">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i> Hapus
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not accounts %}
+    <div class="col-12 text-center py-5">
+        <div class="text-muted">
+            <i class="bi bi-people" style="font-size: 3rem;"></i>
+            <p class="mt-3">Belum ada akun YouTube yang terhubung.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Account Modal -->
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hubungkan Akun YouTube Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/dashboard/youtube-accounts/add" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle"></i> Setelah menekan tombol "Authorize", tab baru akan terbuka di
+                        browser untuk proses login Google. Pastikan file <code>client_secrets.json</code> sudah ada di
+                        folder project.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nama Identitas Akun (Bebas)</label>
+                        <input type="text" name="name" class="form-control"
+                            placeholder="Contoh: Channel Utama, Akun Musik" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Authorize & Connect</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .avatar-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}

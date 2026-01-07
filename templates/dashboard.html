@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+    <p class="text-muted">Overview sistem live streaming</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Total Sessions</p>
+                        <h3 class="mb-0">{{ stats.total_sessions }}</h3>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-broadcast"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Success Rate</p>
+                        <h3 class="mb-0">{{ "%.1f"|format(stats.success_rate) }}%</h3>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Active Streams</p>
+                        <h3 class="mb-0">{{ stats.active_sessions }}</h3>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-play-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Failed</p>
+                        <h3 class="mb-0">{{ stats.failed_sessions }}</h3>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="bi bi-x-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- YouTube API Quick Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-12">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="mb-3"><i class="bi bi-youtube text-danger"></i> YouTube API</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1">Total Stream Keys</p>
+                                <h4 class="mb-0">{{ total_stream_keys }}</h4>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1">Active Keys</p>
+                                <h4 class="mb-0 text-success">{{ active_stream_keys }}</h4>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1">Active Sessions</p>
+                                <h4 class="mb-0 text-warning">{{ active_sessions }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="/admin/youtube/broadcasts" class="btn btn-danger">
+                            <i class="bi bi-youtube"></i> Manage Broadcasts
+                        </a>
+                        <a href="/admin/youtube/create" class="btn btn-outline-danger">
+                            <i class="bi bi-plus-circle"></i> Create Broadcast
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Stream Status -->
+<div class="row g-4 mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-broadcast-pin"></i> Current Stream Status</h5>
+            </div>
+            <div class="card-body">
+                {% if stream_status.is_streaming %}
+                <div class="alert alert-success d-flex align-items-center">
+                    <span class="streaming-indicator active"></span>
+                    <div class="flex-grow-1">
+                        <strong>LIVE STREAMING</strong>
+                        <p class="mb-0 mt-1">
+                            Mode: <span class="badge bg-primary">{{ stream_status.mode }}</span>
+                            {% if stream_status.playlist_id %}
+                            Playlist ID: {{ stream_status.playlist_id }}
+                            {% endif %}
+                            {% if stream_status.session_id %}
+                            | Session ID: {{ stream_status.session_id }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <a href="/admin/live" class="btn btn-primary">
+                        <i class="bi bi-sliders"></i> Control
+                    </a>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary d-flex align-items-center">
+                    <span class="streaming-indicator inactive"></span>
+                    <div class="flex-grow-1">
+                        <strong>NO ACTIVE STREAM</strong>
+                        <p class="mb-0 mt-1">Tidak ada streaming yang sedang berjalan</p>
+                    </div>
+                    <a href="/admin/live" class="btn btn-success">
+                        <i class="bi bi-play-fill"></i> Start Stream
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent History -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent History</h5>
+                <a href="/admin/history" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Mode</th>
+                                <th>Start Time</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in recent_history %}
+                            <tr>
+                                <td>#{{ session.id }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ session.mode }}</span>
+                                </td>
+                                <td>{{ session.start_time.strftime('%Y-%m-%d %H:%M') if session.start_time else '-' }}
+                                </td>
+                                <td>{{ session.get_duration_formatted() }}</td>
+                                <td>
+                                    {% if session.status == 'success' %}
+                                    <span class="badge badge-status bg-success">Success</span>
+                                    {% elif session.status == 'running' %}
+                                    <span class="badge badge-status bg-primary">Running</span>
+                                    {% elif session.status == 'stopped' %}
+                                    <span class="badge badge-status bg-warning">Stopped</span>
+                                    {% else %}
+                                    <span class="badge badge-status bg-danger">Failed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+
+                            {% if not recent_history %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    No history available
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh removed in favor of real-time monitoring dashboard
+    console.log("Dashboard loaded - use Monitoring page for real-time stats");
+</script>
+{% endblock %}

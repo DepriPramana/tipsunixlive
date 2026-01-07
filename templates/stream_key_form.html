@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if action == 'add' %}Add{% else %}Edit{% endif %} Stream Key - StreamLive
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2>
+            <i class="bi bi-{% if action == 'add' %}plus-circle{% else %}pencil{% endif %}"></i>
+            {% if action == 'add' %}Add New Stream Key{% else %}Edit Stream Key{% endif %}
+        </h2>
+        <p class="text-muted">Manage your YouTube stream keys for live broadcasting</p>
+    </div>
+    <a href="/dashboard/stream-keys" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <form method="post"
+                    action="{% if action == 'add' %}/dashboard/stream-keys/add{% else %}/dashboard/stream-keys/edit/{{ stream_key.id }}{% endif %}">
+                    <div class="mb-4">
+                        <label for="name" class="form-label fw-bold">
+                            <i class="bi bi-tag"></i> Stream Key Name
+                        </label>
+                        <input type="text" class="form-control form-control-lg" id="name" name="name"
+                            placeholder="e.g., Lofi Channel 1, Gaming Channel"
+                            value="{% if stream_key %}{{ stream_key.name }}{% endif %}" required>
+                        <div class="form-text">
+                            Nama unik untuk membedakan stream key ini di dashboard
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="stream_key" class="form-label fw-bold">
+                            <i class="bi bi-key"></i> YouTube Stream Key
+                        </label>
+                        <div class="input-group">
+                            <input type="password" class="form-control form-control-lg font-monospace" id="stream_key"
+                                name="stream_key" placeholder="xxxx-xxxx-xxxx-xxxx"
+                                value="{% if stream_key %}{{ stream_key.get_full_key() }}{% endif %}" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleKey">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            Salin "Stream Key" dari YouTube Studio bagian "Stream Settings"
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info border-0 bg-light-subtle d-flex align-items-start small">
+                        <i class="bi bi-info-circle-fill text-info me-3 mt-1"></i>
+                        <div>
+                            <strong>Cara mendapatkan Stream Key:</strong>
+                            <ol class="mb-0 mt-2 ps-3">
+                                <li>Masuk ke YouTube Studio</li>
+                                <li>Klik "Create" → "Go Live"</li>
+                                <li>Pilih tab "Stream"</li>
+                                <li>Salin kode dari bagian "Stream Key"</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            <i class="bi bi-check-circle"></i>
+                            {% if action == 'add' %}Save Stream Key{% else %}Update Key{% endif %}
+                        </button>
+                        <a href="/dashboard/stream-keys" class="btn btn-outline-secondary btn-lg px-4">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if action == 'add' %}
+        <div class="card mt-4 shadow-sm border-0 bg-transparent">
+            <div class="card-body">
+                <h6 class="card-title text-primary">
+                    <i class="bi bi-lightbulb"></i> Tips Keamanan & Penggunaan
+                </h6>
+                <ul class="mb-0 text-muted small">
+                    <li>Gunakan nama yang jelas seperti "Channel Utama" atau "Backup Musik".</li>
+                    <li>Satu stream key hanya bisa digunakan oleh satu siaran aktif pada satu waktu.</li>
+                    <li>Jangan berikan stream key Anda kepada siapapun, karena mereka bisa membajak siaran Anda.</li>
+                    <li>Sistem akan menyamarkan (masking) key ini di dashboard demi keamanan.</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle Stream Key Visibility
+    const toggleBtn = document.getElementById('toggleKey');
+    const keyInput = document.getElementById('stream_key');
+
+    if (toggleBtn && keyInput) {
+        toggleBtn.addEventListener('click', function () {
+            const type = keyInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            keyInput.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('bi-eye');
+            this.querySelector('i').classList.toggle('bi-eye-slash');
+        });
+    }
+</script>
+{% endblock %}

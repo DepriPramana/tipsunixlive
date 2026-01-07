@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar View - StreamLive{% endblock %}
+
+{% block extra_css %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css' rel='stylesheet' />
+<style>
+    .fc {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .fc-event {
+        cursor: pointer;
+        padding: 2px 5px;
+    }
+
+    .status-completed {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+    }
+
+    .status-pending {
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+    }
+
+    .status-running {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+    }
+
+    .status-failed {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-calendar3"></i> Broadcast Calendar</h2>
+        <p class="text-muted">Visualisasi jadwal siaran langsung dan konten yang akan datang</p>
+    </div>
+    <a href="/admin/live" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Create New Schedule
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div id='calendar'></div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Schedule Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="eventDetails" class="modal-body text-center py-4">
+                <!-- Content loaded via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: async function (info, successCallback, failureCallback) {
+                try {
+                    // We'll use the existing history/schedule list and convert to FC events
+                    // For now, let's fetch from history/status of scheduled jobs
+                    const response = await axios.get('/history'); // Need a JSON endpoint for this
+                    // For demo/simplicity, we'll fetch from the active/pending schedules
+                    // In a real app, we'd create a specific /api/calendar-events endpoint
+                } catch (e) { }
+
+                // Static events for now as a fallback/test
+                successCallback([
+                    {
+                        title: 'Daily Stream (Recurring)',
+                        start: '2026-01-07T14:00:00',
+                        className: 'status-pending'
+                    }
+                ]);
+            },
+            eventClick: function (info) {
+                const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+                document.getElementById('eventDetails').innerHTML = `
+                    <h4 class="mb-3">${info.event.title}</h4>
+                    <p class="mb-1"><strong>Time:</strong> ${info.event.start.toLocaleString()}</p>
+                    <hr>
+                    <div class="d-grid">
+                        <a href="/admin/live" class="btn btn-primary">Manage Schedules</a>
+                    </div>
+                `;
+                modal.show();
+            }
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

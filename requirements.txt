@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-dotenv
+sqlalchemy
+ffmpeg-python
+apscheduler
+gdown
+python-multipart
+jinja2
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+psutil
+websockets
+passlib[bcrypt]
+bcrypt==3.2.0
+python-jose[cryptography]

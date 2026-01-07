@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Stream Keys Management - YouTube Live Streaming{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.35rem 0.65rem;
+    }
+
+    .live-indicator {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .card-stats {
+        border-left: 4px solid;
+    }
+
+    .card-stats.primary {
+        border-left-color: #0d6efd;
+    }
+
+    .card-stats.success {
+        border-left-color: #198754;
+    }
+
+    .card-stats.danger {
+        border-left-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-key"></i> Stream Keys Management</h2>
+    <p class="text-muted">Manage YouTube stream keys untuk multiple concurrent streams</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card card-stats primary stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Stream Keys</h6>
+                        <h2 class="mb-0">{{ total_keys }}</h2>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-key-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stats success stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Active Keys</h6>
+                        <h2 class="mb-0">{{ active_count }}</h2>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stats danger stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Live Now</h6>
+                        <h2 class="mb-0">{{ live_count }}</h2>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="bi bi-broadcast-pin"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-list"></i> All Stream Keys</h4>
+    <a href="/dashboard/stream-keys/add" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Add Stream Key
+    </a>
+</div>
+
+<!-- Stream Keys Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Stream Key</th>
+                        <th>Status</th>
+                        <th>Live Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in stream_keys %}
+                    <tr>
+                        <td><strong>#{{ key.id }}</strong></td>
+                        <td>
+                            <strong>{{ key.name }}</strong>
+                        </td>
+                        <td>
+                            <code class="text-muted">{{ key.stream_key }}</code>
+                        </td>
+                        <td>
+                            {% if key.is_active %}
+                            <span class="badge bg-success status-badge">
+                                <i class="bi bi-check-circle"></i> Active
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary status-badge">
+                                <i class="bi bi-x-circle"></i> Disabled
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if key.status == 'live' %}
+                            <span class="badge bg-danger status-badge live-indicator">
+                                <i class="bi bi-broadcast"></i> LIVE
+                            </span>
+                            <br>
+                            <small class="text-muted">
+                                Session: {{ key.session_id }}<br>
+                                PID: {{ key.ffmpeg_pid }}
+                            </small>
+                            {% else %}
+                            <span class="badge bg-secondary status-badge">
+                                <i class="bi bi-pause-circle"></i> Idle
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="/dashboard/stream-keys/edit/{{ key.id }}" class="btn btn-outline-primary"
+                                    title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <form method="post" action="/dashboard/stream-keys/toggle/{{ key.id }}"
+                                    style="display: inline;">
+                                    <button type="submit"
+                                        class="btn btn-outline-{% if key.is_active %}warning{% else %}success{% endif %}"
+                                        title="{% if key.is_active %}Disable{% else %}Enable{% endif %}">
+                                        <i
+                                            class="bi bi-{% if key.is_active %}pause{% else %}play{% endif %}-circle"></i>
+                                    </button>
+                                </form>
+
+                                <form method="post" action="/dashboard/stream-keys/delete/{{ key.id }}"
+                                    style="display: inline;"
+                                    onsubmit="return confirm('Are you sure you want to delete this stream key?');">
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not stream_keys %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                            <p class="mt-3 mb-0">No stream keys found. Add your first stream key to get started!</p>
+                            <a href="/dashboard/stream-keys/add" class="btn btn-primary mt-3">
+                                <i class="bi bi-plus-circle"></i> Add Stream Key
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="/dashboard/monitoring" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-broadcast-pin"></i> Live Monitoring
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/live" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-play-circle"></i> Start Live
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/admin/calendar" class="btn btn-outline-warning w-100">
+                            <i class="bi bi-calendar-event"></i> Schedule Live
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-secondary w-100" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh every 10 seconds
+    setTimeout(function () {
+        location.reload();
+    }, 10000);
+</script>
+{% endblock %}

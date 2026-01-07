@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YouTube Live Streaming 24/7{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --sidebar-width: 250px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar .brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .sidebar .brand h4 {
+            color: white;
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .sidebar .nav-link.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left-color: #ffc107;
+        }
+
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 30px;
+            min-height: 100vh;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card .card-body {
+            padding: 25px;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .badge-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .table-actions .btn {
+            padding: 5px 10px;
+            font-size: 0.875rem;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .streaming-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .streaming-indicator.active {
+            background: #28a745;
+        }
+
+        .streaming-indicator.inactive {
+            background: #6c757d;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">
+            <h4><i class="bi bi-broadcast"></i> Stream Admin</h4>
+        </div>
+
+        <nav class="nav flex-column">
+            <a class="nav-link {% if request.url.path == '/admin/' %}active{% endif %}" href="/admin/">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+            <div
+                style="padding: 0 20px; color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">
+                Stream Management
+            </div>
+
+            <a class="nav-link {% if '/dashboard/stream-keys' in request.url.path %}active{% endif %}"
+                href="/dashboard/stream-keys">
+                <i class="bi bi-key"></i> Stream Keys
+            </a>
+            <a class="nav-link {% if '/dashboard/monitoring' in request.url.path %}active{% endif %}"
+                href="/dashboard/monitoring">
+                <i class="bi bi-broadcast-pin"></i> Live Monitoring
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+            <div
+                style="padding: 0 20px; color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">
+                Content Management
+            </div>
+
+            <a class="nav-link {% if '/videos' in request.url.path %}active{% endif %}" href="/admin/videos">
+                <i class="bi bi-collection-play"></i> Videos
+            </a>
+            <a class="nav-link {% if '/upload' in request.url.path %}active{% endif %}" href="/admin/upload">
+                <i class="bi bi-cloud-upload"></i> Upload
+            </a>
+            <a class="nav-link {% if '/download' in request.url.path %}active{% endif %}" href="/admin/download">
+                <i class="bi bi-cloud-arrow-down"></i> Download
+            </a>
+            <a class="nav-link {% if '/playlists' in request.url.path %}active{% endif %}" href="/admin/playlists">
+                <i class="bi bi-list-ul"></i> Playlists
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+            <div
+                style="padding: 0 20px; color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">
+                Live Streaming
+            </div>
+
+            <a class="nav-link {% if '/live' in request.url.path and '/history' not in request.url.path %}active{% endif %}"
+                href="/admin/live">
+                <i class="bi bi-play-circle"></i> Live Control
+            </a>
+            <a class="nav-link {% if '/history' in request.url.path %}active{% endif %}" href="/admin/history">
+                <i class="bi bi-clock-history"></i> History
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+            <div
+                style="padding: 0 20px; color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">
+                YouTube API
+            </div>
+
+            <a class="nav-link {% if '/youtube/accounts' in request.url.path %}active{% endif %}"
+                href="/dashboard/youtube-accounts">
+                <i class="bi bi-people"></i> YouTube Accounts
+            </a>
+            <a class="nav-link {% if '/youtube/broadcasts' in request.url.path %}active{% endif %}"
+                href="/admin/youtube/broadcasts">
+                <i class="bi bi-youtube"></i> Broadcasts
+            </a>
+            <a class="nav-link {% if '/youtube/create' in request.url.path %}active{% endif %}"
+                href="/admin/youtube/create">
+                <i class="bi bi-plus-square"></i> Create Broadcast
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+            <div
+                style="padding: 0 20px; color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">
+                Tools
+            </div>
+
+            <a class="nav-link {% if '/calendar' in request.url.path %}active{% endif %}" href="/admin/calendar">
+                <i class="bi bi-calendar3"></i> Calendar View
+            </a>
+
+            <a class="nav-link" href="/docs" target="_blank">
+                <i class="bi bi-file-earmark-text"></i> API Docs
+            </a>
+
+        </nav>
+
+        <div
+            style="padding: 20px 10px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.1); margin: 20px 0;">
+            <a class="btn btn-outline-danger w-100 text-start" href="/logout">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Axios for API calls -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <!-- Common JS -->
+    <script>
+        // API Base URL
+        const API_BASE = '';
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                const container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.className = 'toast-container position-fixed top-0 end-0 p-3';
+                container.style.zIndex = '9999';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+
+            document.getElementById('toastContainer').appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        // Format duration
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+
+            return `${size.toFixed(2)} ${units[unitIndex]}`;
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

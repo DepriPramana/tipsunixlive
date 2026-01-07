@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Create YouTube Broadcast - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-plus-square"></i> Create YouTube Broadcast</h2>
+    <p class="text-muted">Create new live broadcast on YouTube</p>
+</div>
+
+{% if error_message %}
+<!-- Error Alert -->
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> YouTube API Not Available</h5>
+    <p class="mb-0">{{ error_message }}</p>
+    {% if 'client_secrets.json' in error_message %}
+    <hr>
+    <p class="mb-0 small">
+        <strong>Setup Instructions:</strong><br>
+        1. Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a><br>
+        2. Enable YouTube Data API v3<br>
+        3. Create OAuth 2.0 credentials<br>
+        4. Download as <code>client_secrets.json</code><br>
+        5. Place in project root
+    </p>
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% else %}
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button">
+            <i class="bi bi-broadcast"></i> Single Broadcast
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="multiple-tab" data-bs-toggle="tab" data-bs-target="#multiple" type="button">
+            <i class="bi bi-collection"></i> Multiple Broadcasts
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Single Broadcast Tab -->
+    <div class="tab-pane fade show active" id="single" role="tabpanel">
+        <div class="card">
+            <div class="card-body">
+                <form id="singleBroadcastForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Broadcast Title <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="broadcastTitle" required
+                                    placeholder="e.g., Lofi Music 24/7">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Stream Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="streamName" required
+                                    placeholder="e.g., Main Stream">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="description" rows="3"
+                            placeholder="Describe your broadcast..."></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Privacy Status</label>
+                                <select class="form-select" id="privacyStatus">
+                                    <option value="public">Public</option>
+                                    <option value="unlisted" selected>Unlisted</option>
+                                    <option value="private">Private</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Resolution</label>
+                                <select class="form-select" id="resolution">
+                                    <option value="1080p" selected>1080p (Full HD)</option>
+                                    <option value="720p">720p (HD)</option>
+                                    <option value="480p">480p (SD)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Frame Rate</label>
+                                <select class="form-select" id="frameRate">
+                                    <option value="30fps" selected>30 FPS</option>
+                                    <option value="60fps">60 FPS</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row align-items-end">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">YouTube Account / Channel <span
+                                        class="text-danger">*</span></label>
+                                <select class="form-select" id="accountId" required>
+                                    {% for account in youtube_accounts %}
+                                    <option value="{{ account.id }}">{{ account.name }} ({{ account.channel_title }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if not youtube_accounts %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-exclamation-circle"></i> No active accounts. <a
+                                        href="/dashboard/youtube-accounts">Add one here</a>.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Scheduled Start Time (Optional)</label>
+                                <input type="datetime-local" class="form-control" id="scheduledTime">
+                            </div>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mb-3">Leave empty to start immediately (5 minutes from now)</small>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" id="createSingleBtn">
+                            <i class="bi bi-plus-circle"></i> Create Broadcast
+                        </button>
+                        <a href="/admin/youtube/broadcasts" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multiple Broadcasts Tab -->
+    <div class="tab-pane fade" id="multiple" role="tabpanel">
+        <div class="card">
+            <div class="card-body">
+                <form id="multipleBroadcastsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Number of Broadcasts</label>
+                        <input type="number" class="form-control" id="numBroadcasts" min="2" max="10" value="3">
+                        <small class="text-muted">Create 2-10 broadcasts at once</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Title Template</label>
+                        <input type="text" class="form-control" id="titleTemplate" placeholder="e.g., Lofi Music {n}"
+                            value="Lofi Music {n}">
+                        <small class="text-muted">Use {n} for number. Example: "Lofi Music {n}" → "Lofi Music 1", "Lofi
+                            Music 2", etc.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Name Template</label>
+                        <input type="text" class="form-control" id="streamTemplate" placeholder="e.g., Stream {n}"
+                            value="Stream {n}">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Privacy Status (All)</label>
+                                <select class="form-select" id="multiPrivacyStatus">
+                                    <option value="public">Public</option>
+                                    <option value="unlisted" selected>Unlisted</option>
+                                    <option value="private">Private</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Description (All)</label>
+                                <input type="text" class="form-control" id="multiDescription"
+                                    placeholder="Description for all broadcasts">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" id="createMultipleBtn">
+                            <i class="bi bi-collection"></i> Create All Broadcasts
+                        </button>
+                        <a href="/admin/youtube/broadcasts" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+
+                <!-- Progress -->
+                <div id="multipleProgress" class="mt-4" style="display: none;">
+                    <h5>Creating Broadcasts...</h5>
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar"
+                            style="width: 0%"></div>
+                    </div>
+                    <div id="progressStatus"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Create Single Broadcast
+    document.getElementById('singleBroadcastForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('createSingleBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
+
+        const data = {
+            broadcast_title: document.getElementById('broadcastTitle').value,
+            stream_name: document.getElementById('streamName').value,
+            description: document.getElementById('description').value,
+            privacy_status: document.getElementById('privacyStatus').value,
+            scheduled_start_time: document.getElementById('scheduledTime').value || null,
+            account_id: document.getElementById('accountId').value
+        };
+
+        try {
+            const response = await axios.post('/youtube/create-live-setup', data);
+
+            showToast('Broadcast created successfully!', 'success');
+
+            // Show success details
+            const result = response.data;
+            alert(`Broadcast Created!\n\nBroadcast ID: ${result.broadcast_id}\nStream Key: ${result.stream_key}\n\nRedirecting to broadcasts page...`);
+
+            setTimeout(() => {
+                window.location.href = '/admin/youtube/broadcasts';
+            }, 1000);
+
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to create broadcast', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-circle"></i> Create Broadcast';
+        }
+    });
+
+    // Create Multiple Broadcasts
+    document.getElementById('multipleBroadcastsForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('createMultipleBtn');
+        const progressDiv = document.getElementById('multipleProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressStatus = document.getElementById('progressStatus');
+
+        btn.disabled = true;
+        progressDiv.style.display = 'block';
+
+        const numBroadcasts = parseInt(document.getElementById('numBroadcasts').value);
+        const titleTemplate = document.getElementById('titleTemplate').value;
+        const streamTemplate = document.getElementById('streamTemplate').value;
+        const privacyStatus = document.getElementById('multiPrivacyStatus').value;
+        const description = document.getElementById('multiDescription').value;
+
+        // Generate setups
+        const setups = [];
+        for (let i = 1; i <= numBroadcasts; i++) {
+            setups.push({
+                broadcast_title: titleTemplate.replace('{n}', i),
+                stream_name: streamTemplate.replace('{n}', i),
+                description: description,
+                privacy_status: privacyStatus
+            });
+        }
+
+        const account_id = document.getElementById('accountId').value;
+
+        try {
+            const response = await axios.post('/youtube/create-multiple-lives', {
+                setups,
+                account_id: account_id
+            });
+
+            const result = response.data;
+            progressBar.style.width = '100%';
+            progressStatus.innerHTML = `
+                <div class="alert alert-success">
+                    <h5>✅ Batch Creation Complete!</h5>
+                    <p>Total Requested: ${result.total_requested}</p>
+                    <p>Successfully Created: ${result.total_created}</p>
+                    <p>Failed: ${result.total_failed}</p>
+                </div>
+            `;
+
+            showToast(`${result.total_created} broadcasts created successfully!`, 'success');
+
+            setTimeout(() => {
+                window.location.href = '/admin/youtube/broadcasts';
+            }, 2000);
+
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to create broadcasts', 'danger');
+            btn.disabled = false;
+            progressDiv.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

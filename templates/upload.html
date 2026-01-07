@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Video - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-cloud-upload"></i> Upload Video</h2>
+    <p class="text-muted">Upload video file ke server</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form id="uploadForm">
+                    <div class="mb-4">
+                        <label class="form-label">Select Video File</label>
+                        <input type="file" class="form-control" id="videoFile" accept="video/*" required>
+                        <div class="form-text">
+                            Supported formats: MP4, MKV, AVI, MOV, FLV, WMV, WEBM
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div id="uploadProgress" class="d-none">
+                            <label class="form-label">Upload Progress</label>
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small id="progressText" class="text-muted"></small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <i class="bi bi-cloud-upload"></i> Upload Video
+                    </button>
+                    <a href="/admin/videos" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Videos
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('videoFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showToast('Please select a file', 'danger');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressDiv = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        uploadBtn.disabled = true;
+        progressDiv.classList.remove('d-none');
+
+        try {
+            const response = await axios.post('/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    progressBar.style.width = percentCompleted + '%';
+                    progressBar.textContent = percentCompleted + '%';
+                    progressText.textContent = `Uploading... ${formatFileSize(progressEvent.loaded)} / ${formatFileSize(progressEvent.total)}`;
+                }
+            });
+
+            showToast('Video uploaded successfully!', 'success');
+            setTimeout(() => {
+                window.location.href = '/admin/videos';
+            }, 1500);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Upload failed', 'danger');
+            uploadBtn.disabled = false;
+            progressDiv.classList.add('d-none');
+        }
+    });
+</script>
+{% endblock %}
