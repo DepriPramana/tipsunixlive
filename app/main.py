@@ -36,8 +36,9 @@ app.include_router(history.router, dependencies=protected_dependency)
 app.include_router(dashboard.router, dependencies=protected_dependency)  # Stream keys dashboard
 app.include_router(monitoring.router, dependencies=protected_dependency)  # Live monitoring
 app.include_router(relive.router, dependencies=protected_dependency)  # Re-live feature
-from app.routers import youtube_accounts
+from app.routers import youtube_accounts, users
 app.include_router(youtube_accounts.router, dependencies=protected_dependency)
+app.include_router(users.router, dependencies=protected_dependency)
 app.include_router(websocket.router)  # WebSocket monitoring (usually handles auth internally or via initial connection)
 
 # Optional: YouTube API

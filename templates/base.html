@@ -239,6 +239,10 @@
                 Tools
             </div>
 
+            <a class="nav-link {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users">
+                <i class="bi bi-people-fill"></i> User Management
+            </a>
+
             <a class="nav-link {% if '/calendar' in request.url.path %}active{% endif %}" href="/admin/calendar">
                 <i class="bi bi-calendar3"></i> Calendar View
             </a>
