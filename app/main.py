@@ -49,10 +49,34 @@ try:
 except ImportError:
     pass
 
+def cleanup_zombie_sessions():
+    """Mark all 'running' sessions as 'interrupted' on startup"""
+    from app.database import SessionLocal
+    from app.models.live_session import LiveSession
+    from datetime import datetime
+    
+    db = SessionLocal()
+    try:
+        zombies = db.query(LiveSession).filter(LiveSession.status == 'running').all()
+        if zombies:
+            print(f"🧹 Cleaning up {len(zombies)} zombie sessions...")
+            for session in zombies:
+                session.status = 'interrupted'
+                session.end_time = datetime.utcnow()
+            db.commit()
+    except Exception as e:
+        print(f"❌ Error cleaning up sessions: {e}")
+    finally:
+        db.close()
+
 @app.on_event("startup")
 async def startup_event():
     """Run tasks on startup"""
     import asyncio
+    
+    # Clean up old sessions first
+    cleanup_zombie_sessions()
+    
     try:
         from app.services.stream_control_service import health_monitor_loop
         asyncio.create_task(health_monitor_loop())

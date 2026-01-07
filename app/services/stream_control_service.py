@@ -462,6 +462,20 @@ async def delayed_restart(session_id: int, delay: int):
             
         logger.info(f"Executing restart for session {session_id}")
         
+        # Check if another session is already using this stream key
+        # to prevent "More than one ingestion" errors
+        existing_active = db.query(LiveSession).filter(
+            LiveSession.stream_key_id == session.stream_key_id,
+            LiveSession.status == 'running',
+            LiveSession.id != session_id
+        ).first()
+
+        if existing_active:
+            logger.warning(f"Aborting restart for session {session_id}. Stream key ID {session.stream_key_id} is already in use by session {existing_active.id}")
+            session.status = 'interrupted'
+            db.commit()
+            return
+
         # Get stream key
         stream_key = db.query(StreamKey).filter(StreamKey.id == session.stream_key_id).first()
         if not stream_key or not stream_key.is_active:
