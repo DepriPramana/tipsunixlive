@@ -323,23 +323,14 @@ class FFmpegService:
             '-stream_loop', '-1' if loop else '0',  # -1 = infinite loop
             '-i', concat_file,
             
-            # Video encoding
-            '-c:v', 'libx264',
-            '-preset', 'ultrafast',  # Change from veryfast to ultrafast for low CPU
-            '-tune', 'zerolatency',   # Add zerolatency for cloud servers
-            '-maxrate', '3000k',
-            '-bufsize', '6000k',
-            '-pix_fmt', 'yuv420p',
-            '-g', '60',  # Keyframe interval
-            '-threads', '2',  # Limit to 2 threads for 2-CPU cloud servers
+            # Stream Copy Mode (Near 0% CPU Usage)
+            # IMPORTANT: All source videos MUST have the same resolution, codec, and bitrate.
+            '-c:v', 'copy',
+            '-c:a', 'copy',
             
-            # Audio encoding
-            '-c:a', 'aac',
-            '-b:a', '128k',
-            '-ar', '44100',
-            
-            # Output
+            # Output settings
             '-f', 'flv',
+            '-flvflags', 'no_duration_filesize',
             rtmp_url
         ]
         
