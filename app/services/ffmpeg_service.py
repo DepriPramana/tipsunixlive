@@ -325,11 +325,13 @@ class FFmpegService:
             
             # Video encoding
             '-c:v', 'libx264',
-            '-preset', 'veryfast',
+            '-preset', 'ultrafast',  # Change from veryfast to ultrafast for low CPU
+            '-tune', 'zerolatency',   # Add zerolatency for cloud servers
             '-maxrate', '3000k',
             '-bufsize', '6000k',
             '-pix_fmt', 'yuv420p',
             '-g', '60',  # Keyframe interval
+            '-threads', '2',  # Limit to 2 threads for 2-CPU cloud servers
             
             # Audio encoding
             '-c:a', 'aac',

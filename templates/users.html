@@ -39,7 +39,8 @@
                         <td>{{ user.id }}</td>
                         <td>
                             <div class="d-flex align-items-center">
-                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                                    style="width: 32px; height: 32px;">
                                     {{ user.username[0].upper() }}
                                 </div>
                                 <strong>{{ user.username }}</strong>
@@ -57,73 +58,18 @@
                         </td>
                         <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td class="text-end table-actions">
-                            <button class="btn btn-outline-primary btn-sm me-1" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editUserModal{{ user.id }}">
+                            <button class="btn btn-outline-primary btn-sm me-1" data-bs-toggle="modal"
+                                data-bs-target="#editUserModal{{ user.id }}">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             {% if user.username != current_user %}
-                            <button class="btn btn-outline-danger btn-sm"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#deleteUserModal{{ user.id }}">
+                            <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#deleteUserModal{{ user.id }}">
                                 <i class="bi bi-trash"></i>
                             </button>
                             {% endif %}
                         </td>
                     </tr>
-
-                    <!-- Edit User Modal -->
-                    <div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Edit User: {{ user.username }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <form action="/admin/users/edit/{{ user.id }}" method="POST">
-                                    <div class="modal-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Username</label>
-                                            <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Password Baru (kosongkan jika tidak ingin ganti)</label>
-                                            <input type="password" name="password" class="form-control" placeholder="••••••••">
-                                        </div>
-                                        <div class="mb-3 form-check">
-                                            <input type="checkbox" name="is_admin" class="form-check-input" id="isAdminCheck{{ user.id }}" {% if user.is_admin %}checked{% endif %} value="True">
-                                            <label class="form-check-label" for="isAdminCheck{{ user.id }}">Administrator</label>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Delete User Modal -->
-                    <div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Hapus User</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Apakah Anda yakin ingin menghapus user <strong>{{ user.username }}</strong>? Tindakan ini tidak dapat dibatalkan.
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                    <form action="/admin/users/delete/{{ user.id }}" method="POST">
-                                        <button type="submit" class="btn btn-danger">Hapus Sekarang</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     {% endfor %}
                 </tbody>
             </table>
@@ -131,13 +77,71 @@
     </div>
 </div>
 
+<!-- Modal Definitions (Moved outside for layout stability) -->
+{% for user in users %}
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User: {{ user.username }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/admin/users/edit/{{ user.id }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password Baru (kosongkan jika tidak ingin ganti)</label>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_admin" class="form-check-input" id="isAdminCheck{{ user.id }}"
+                            {% if user.is_admin %}checked{% endif %} value="True">
+                        <label class="form-check-label" for="isAdminCheck{{ user.id }}">Administrator</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hapus User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Apakah Anda yakin ingin menghapus user <strong>{{ user.username }}</strong>? Tindakan ini tidak dapat
+                dibatalkan.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <form action="/admin/users/delete/{{ user.id }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Hapus Sekarang</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 <!-- Add User Modal -->
-<div class="modal fade" id="addUserModal" tabindex="-1">
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Tambah User Baru</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="/admin/users/add" method="POST">
                 <div class="modal-body">
@@ -150,7 +154,8 @@
                         <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                     </div>
                     <div class="mb-3 form-check">
-                        <input type="checkbox" name="is_admin" class="form-check-input" id="addUserIsAdmin" checked value="True">
+                        <input type="checkbox" name="is_admin" class="form-check-input" id="addUserIsAdmin" checked
+                            value="True">
                         <label class="form-check-label" for="addUserIsAdmin">Administrator</label>
                     </div>
                 </div>
