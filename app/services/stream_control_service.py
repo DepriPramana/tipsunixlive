@@ -402,7 +402,7 @@ async def health_monitor_loop():
                     current_duration_hours = session.get_duration_seconds() / 3600
                     if current_duration_hours >= session.max_duration_hours:
                         logger.info(f"Session {session.id} reached max duration ({session.max_duration_hours}h). Stopping.")
-                        self.stop_stream_by_session_id(db, session.id)
+                        stream_control.stop_stream_by_session_id(db, session.id)
                         continue
 
                 is_running = ffmpeg_service.is_process_running(session.id)

@@ -333,6 +333,7 @@ def get_live_status(db: Session = Depends(get_db)):
         response['mode'] = first_session.mode
         response['session_id'] = first_session.id
         response['stream_key_id'] = first_session.stream_key_id
+        response['max_duration_hours'] = first_session.max_duration_hours
         
         if first_session.playlist_id:
             response['playlist_id'] = first_session.playlist_id

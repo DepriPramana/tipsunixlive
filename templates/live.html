@@ -70,17 +70,28 @@
                                 <strong>LIVE STREAMING</strong>
                             </h4>
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <small class="text-muted d-block">Mode</small>
                                     <strong>{{ stream_status.mode }}</strong>
                                 </div>
                                 {% if stream_status.playlist_id %}
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <small class="text-muted d-block">Playlist ID</small>
                                     <strong>#{{ stream_status.playlist_id }}</strong>
                                 </div>
                                 {% endif %}
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <small class="text-muted d-block">Max Duration</small>
+                                    <strong>
+                                        {% if stream_status.max_duration_hours and stream_status.max_duration_hours > 0
+                                        %}
+                                        {{ stream_status.max_duration_hours }} Hours
+                                        {% else %}
+                                        24/7 Unlimited
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                                <div class="col-md-3">
                                     <small class="text-muted d-block">Session ID</small>
                                     <strong>#{{ stream_status.session_id }}</strong>
                                 </div>
