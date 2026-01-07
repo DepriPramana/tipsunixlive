@@ -405,7 +405,7 @@ async def health_monitor_loop():
                         stream_control.stop_stream_by_session_id(db, session.id)
                         continue
 
-                is_running = ffmpeg_service.is_process_running(session.id)
+                is_running = ffmpeg_service.is_process_running(session.id, pid=session.ffmpeg_pid)
                 
                 if not is_running:
                     # Stream should be running but is not

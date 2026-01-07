@@ -218,14 +218,30 @@ class FFmpegService:
         """Get list of all active session IDs"""
         return list(self.active_processes.keys())
     
-    def is_process_running(self, session_id: int) -> bool:
-        """Check if FFmpeg process is still running"""
+    def is_process_running(self, session_id: int, pid: Optional[int] = None) -> bool:
+        """
+        Check if FFmpeg process is still running.
+        Can check via local registry or system PID.
+        """
+        import psutil
         
-        if session_id not in self.active_processes:
-            return False
+        # 1. Check local registry first
+        if session_id in self.active_processes:
+            process = self.active_processes[session_id]['process']
+            if process.poll() is None:
+                return True
         
-        process = self.active_processes[session_id]['process']
-        return process.poll() is None
+        # 2. Check via system PID (for multi-worker support)
+        if pid:
+            try:
+                if psutil.pid_exists(pid):
+                    # verify it's actually ffmpeg
+                    p = psutil.Process(pid)
+                    return 'ffmpeg' in p.name().lower()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+                
+        return False
     
     def get_process_pid(self, session_id: int) -> Optional[int]:
         """Get FFmpeg process PID"""

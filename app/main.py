@@ -93,14 +93,8 @@ async def startup_event():
     except Exception as e:
         print(f"❌ Error starting health monitor: {e}")
 
-# Optional: YouTube API (requires google-api-python-client)
-try:
-    from app.routers import youtube_api, youtube_web
-    app.include_router(youtube_api.router)  # YouTube API endpoints
-    app.include_router(youtube_web.router)  # YouTube web pages
-except ImportError:
-    print("⚠️  YouTube API router not loaded (google-api-python-client not installed)")
-    print("   Install with: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib")
+    except Exception as e:
+        print(f"❌ Error starting health monitor: {e}")
 
 
 @app.get("/")
