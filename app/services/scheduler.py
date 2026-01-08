@@ -28,7 +28,8 @@ def _execute_scheduled_stream(
     title: str = "Scheduled Live Stream",
     description: str = "",
     use_youtube_api: bool = True,
-    max_duration_hours: int = 0
+    max_duration_hours: int = 0,
+    stream_key_id: Optional[int] = None
 ):
     """
     Execute scheduled stream dengan LiveHistory tracking dan YouTube API.
@@ -108,8 +109,9 @@ def _execute_scheduled_stream(
             mode=mode,
             playlist_id=playlist_id,
             video_id=video_id,
-            stream_key=stream_key,  # Save stream key to session
-            max_duration_hours=max_duration_hours
+            stream_key=stream_key,  # Save stream key (string) to session for legacy
+            max_duration_hours=max_duration_hours,
+            stream_key_id=stream_key_id
         )
         
         logger.info(f"✅ LiveHistory session created: {session.id}")
@@ -120,13 +122,14 @@ def _execute_scheduled_stream(
             broadcast_service.link_to_live_history(broadcast_id, session.id)
         
         # Step 3: Start stream
+        from app.models.stream_key import StreamKey
         success = stream_service.start_stream(
             video_paths=video_paths,
             playlist_id=playlist_id,
             video_id=video_id,
             loop=True,
             session_id=session.id,
-            stream_key=stream_key  # Use YouTube stream key
+            stream_key=stream_key or (db.query(StreamKey).filter(StreamKey.id == stream_key_id).first().get_full_key() if stream_key_id else None)
         )
         
         if not success:
@@ -177,7 +180,8 @@ def schedule_live(
     title: str = "Scheduled Live Stream",
     description: str = "",
     use_youtube_api: bool = True,
-    max_duration_hours: int = 0
+    max_duration_hours: int = 0,
+    stream_key_id: Optional[int] = None
 ):
     """
     Menjadwalkan live streaming dengan YouTube API integration.
@@ -210,7 +214,8 @@ def schedule_live(
             'title': title,
             'description': description,
             'use_youtube_api': use_youtube_api,
-            'max_duration_hours': max_duration_hours
+            'max_duration_hours': max_duration_hours,
+            'stream_key_id': stream_key_id
         }
     )
     
@@ -256,5 +261,3 @@ def cancel_scheduled_job(job_id: str) -> bool:
     except Exception as e:
         logger.error(f"❌ Failed to cancel job {job_id}: {e}")
         return False
-
-

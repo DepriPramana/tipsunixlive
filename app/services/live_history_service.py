@@ -27,7 +27,8 @@ class LiveHistoryService:
         mode: str,
         video_id: Optional[int] = None,
         playlist_id: Optional[int] = None,
-        max_duration_hours: int = 0
+        max_duration_hours: int = 0,
+        stream_key_id: Optional[int] = None
     ) -> LiveHistory:
         """
         Create new live streaming session.
@@ -36,18 +37,21 @@ class LiveHistoryService:
             mode: Mode streaming ('single' atau 'playlist')
             video_id: ID video (untuk mode single)
             playlist_id: ID playlist (untuk mode playlist)
+            max_duration_hours: Batas durasi streaming
+            stream_key_id: ID stream key yang digunakan
             
         Returns:
             LiveHistory object yang baru dibuat
         """
-        logger.info(f"Creating live session: mode={mode}, video_id={video_id}, playlist_id={playlist_id}")
+        logger.info(f"Creating live session: mode={mode}, video_id={video_id}, playlist_id={playlist_id}, stream_key_id={stream_key_id}")
         
         session = LiveHistory(
             mode=mode,
             video_id=video_id,
             playlist_id=playlist_id,
             status='running',
-            stream_key=YOUTUBE_STREAM_KEY,
+            stream_key_id=stream_key_id,
+            stream_key=YOUTUBE_STREAM_KEY, # Legacy fallback
             start_time=datetime.utcnow(),
             max_duration_hours=max_duration_hours
         )
@@ -148,6 +152,35 @@ class LiveHistoryService:
             LiveHistory.playlist_id == playlist_id
         ).order_by(LiveHistory.start_time.desc()).all()
     
+    def delete_session(self, session_id: int) -> bool:
+        """
+        Delete session from both LiveHistory and LiveSession.
+        Returns True if something was deleted.
+        """
+        from app.models.live_session import LiveSession
+        
+        deleted = False
+        
+        # 1. Try LiveHistory
+        history = self.db.query(LiveHistory).filter(LiveHistory.id == session_id).first()
+        if history:
+            self.db.delete(history)
+            deleted = True
+            
+        # 2. Try LiveSession
+        session = self.db.query(LiveSession).filter(LiveSession.id == session_id).first()
+        if session:
+            # Don't delete running sessions maybe? 
+            # Or just let it happen. User wants to delete history.
+            self.db.delete(session)
+            deleted = True
+            
+        if deleted:
+            self.db.commit()
+            logger.info(f"✅ Session {session_id} deleted successfully")
+            
+        return deleted
+
     def get_video_sessions(self, video_id: int) -> List[LiveHistory]:
         """Get all sessions untuk video tertentu"""
         return self.db.query(LiveHistory).filter(

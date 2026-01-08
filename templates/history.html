@@ -136,20 +136,22 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="viewDetails({{ session.id }})"
-                                title="View Details">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                            {% if session.status != 'running' %}
-                            <button class="btn btn-sm btn-danger" onclick="instantReStream({{ session.id }})"
-                                title="Instant Re-Stream (Start Now)">
-                                <i class="bi bi-play-fill"></i>
-                            </button>
-                            <button class="btn btn-sm btn-success" onclick="reLive({{ session.id }})"
-                                title="Schedule Re-Live">
-                                <i class="bi bi-calendar-plus"></i>
-                            </button>
-                            {% endif %}
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-info" onclick="viewDetails({{ session.id }})"
+                                    title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                {% if session.status != 'running' %}
+                                <button class="btn btn-primary" onclick="openReuseModal({{ session.id }})"
+                                    title="Gunakan Ulang (Edit & Stream)">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteHistory({{ session.id }})"
+                                    title="Delete History">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -163,6 +165,80 @@
                     {% endif %}
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Reuse Modal -->
+<div class="modal fade" id="reuseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gunakan Ulang Sesi Streaming</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reuseForm">
+                    <input type="hidden" id="reuseHistoryId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Mode</label>
+                        <input type="text" class="form-control" id="reuseMode" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" id="resourceLabel">Video/Playlist</label>
+                        <input type="text" class="form-control" id="reuseResourceName" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Key</label>
+                        <select class="form-select" id="reuseStreamKey" required>
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">{{ key.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration Limit</label>
+                        <select class="form-select" id="reuseMaxDuration">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Jam</option>
+                            <option value="2">2 Jam</option>
+                            <option value="3">3 Jam</option>
+                            <option value="6">6 Jam</option>
+                            <option value="12">12 Jam</option>
+                            <option value="24">24 Jam</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Execution Type</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="reuseExecType" id="execInstant" value="instant" checked>
+                                <label class="form-check-label" for="execInstant">Start Now</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="reuseExecType" id="execSchedule" value="schedule">
+                                <label class="form-check-label" for="execSchedule">Schedule Later</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="scheduleInputGroup" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Scheduled Time</label>
+                            <input type="datetime-local" class="form-control" id="reuseScheduledTime">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitReuse()">Start Streaming</button>
+            </div>
         </div>
     </div>
 </div>
@@ -185,61 +261,99 @@
         }
     }
 
-    // View details
-    function viewDetails(sessionId) {
-        showToast('View details feature coming soon', 'info');
-    }
+    // Load statistics on page load
+    loadStatistics();
 
-    // Instant Re-Stream
-    async function instantReStream(sessionId) {
-        if (!confirm('Apakah Anda yakin ingin memulai streaming ulang sesi ini sekarang? \n(Akan menggunakan Stream Key yang sama jika tersedia)')) return;
-
-        try {
-            const response = await axios.post('/history/instant-re-live', {
-                history_id: sessionId
+    let reuseModal;
+    document.addEventListener('DOMContentLoaded', function() {
+        reuseModal = new bootstrap.Modal(document.getElementById('reuseModal'));
+        
+        // Toggle schedule input
+        document.getElementsByName('reuseExecType').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const group = document.getElementById('scheduleInputGroup');
+                const submitBtn = document.querySelector('.modal-footer .btn-primary');
+                if (this.value === 'schedule') {
+                    group.style.display = 'block';
+                    submitBtn.textContent = 'Schedule Session';
+                } else {
+                    group.style.display = 'none';
+                    submitBtn.textContent = 'Start Streaming';
+                }
             });
-
-            showToast('Instant Re-Stream started successfully!', 'success');
-            setTimeout(() => window.location.href = '/dashboard/monitoring', 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to start Instant Re-Stream', 'danger');
-        }
-    }
-
-    // Re-live (Schedule)
-    async function reLive(sessionId) {
-        const scheduledTime = prompt('Enter scheduled time (YYYY-MM-DD HH:MM):');
-
-        if (!scheduledTime) return;
-
-        try {
-            await axios.post('/history/re-live', {
-                history_id: sessionId,
-                scheduled_time: scheduledTime
-            });
-
-            showToast('Stream re-scheduled successfully!', 'success');
-            setTimeout(() => window.location.href = '/admin/calendar', 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to re-schedule', 'danger');
-        }
-    }
-
-    // Filter by status
-    document.getElementById('statusFilter').addEventListener('change', function () {
-        const status = this.value;
-        const rows = document.querySelectorAll('#historyTableBody tr');
-
-        rows.forEach(row => {
-            if (!status || row.textContent.toLowerCase().includes(status.toLowerCase())) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
         });
     });
 
-    // Load statistics on page load
-    loadStatistics();
+    // Delete history
+    async function deleteHistory(sessionId) {
+        if (!confirm('Apakah Anda yakin ingin menghapus history ini?')) return;
+        
+        try {
+            await axios.delete(`/history/${sessionId}`);
+            showToast('History berhasil dihapus', 'success');
+            location.reload();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Gagal menghapus history', 'danger');
+        }
+    }
+
+    // Open reuse modal
+    async function openReuseModal(sessionId) {
+        try {
+            const response = await axios.get(`/history/${sessionId}`);
+            const data = response.data;
+            
+            document.getElementById('reuseHistoryId').value = sessionId;
+            document.getElementById('reuseMode').value = data.mode;
+            document.getElementById('reuseStreamKey').value = data.stream_key_id;
+            document.getElementById('reuseMaxDuration').value = data.max_duration_hours || 0;
+            
+            if (data.mode === 'playlist') {
+                document.getElementById('resourceLabel').textContent = 'Playlist';
+                document.getElementById('reuseResourceName').value = data.playlist_name || `Playlist #${data.playlist_id}`;
+            } else {
+                document.getElementById('resourceLabel').textContent = 'Video';
+                document.getElementById('reuseResourceName').value = data.video_name || `Video #${data.video_id}`;
+            }
+            
+            reuseModal.show();
+        } catch (error) {
+            showToast('Gagal memuat detail history', 'danger');
+        }
+    }
+
+    // Submit reuse
+    async function submitReuse() {
+        const sessionId = document.getElementById('reuseHistoryId').value;
+        const execType = document.querySelector('input[name="reuseExecType"]:checked').value;
+        const streamKeyId = document.getElementById('reuseStreamKey').value;
+        const maxDuration = document.getElementById('reuseMaxDuration').value;
+        
+        const payload = {
+            history_id: parseInt(sessionId),
+            stream_key_id: parseInt(streamKeyId),
+            max_duration_hours: parseInt(maxDuration)
+        };
+        
+        try {
+            if (execType === 'instant') {
+                await axios.post('/history/instant-re-live', payload);
+                showToast('Stream berhasil dimulai!', 'success');
+                setTimeout(() => window.location.href = '/dashboard/monitoring', 1500);
+            } else {
+                const scheduledTime = document.getElementById('reuseScheduledTime').value;
+                if (!scheduledTime) {
+                    showToast('Silakan pilih waktu penjadwalan', 'warning');
+                    return;
+                }
+                payload.scheduled_time = scheduledTime;
+                await axios.post('/history/re-live', payload);
+                showToast('Stream berhasil dijadwalkan!', 'success');
+                setTimeout(() => window.location.href = '/admin/calendar', 1500);
+            }
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Gagal memproses permintaan', 'danger');
+        }
+    }
 </script>
 {% endblock %}

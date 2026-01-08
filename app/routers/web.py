@@ -198,12 +198,17 @@ async def live_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request, db: Session = Depends(get_db)):
     """Halaman live history"""
+    from app.models.stream_key import StreamKey
+    
     history_service = LiveHistoryService(db)
     history = history_service.get_all_sessions(limit=50)
     
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    
     return templates.TemplateResponse("history.html", {
         "request": request,
-        "history": history
+        "history": history,
+        "stream_keys": stream_keys
     })
 
 

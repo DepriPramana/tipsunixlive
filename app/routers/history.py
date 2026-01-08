@@ -48,10 +48,14 @@ class ReLiveRequest(BaseModel):
     """Schema untuk re-live (schedule ulang)"""
     history_id: int
     scheduled_time: datetime
+    stream_key_id: Optional[int] = None
+    max_duration_hours: Optional[int] = None
 
 class ReStreamRequest(BaseModel):
     """Schema untuk instant re-stream (berdasarkan ID dari history mana saja)"""
     history_id: int
+    stream_key_id: Optional[int] = None
+    max_duration_hours: Optional[int] = None
 
 
 @router.get("/", response_model=List[HistoryResponse])
@@ -114,30 +118,39 @@ def get_all_history(
     return results
 
 
+    return result
+
+
+@router.delete("/{history_id}")
+def delete_history(history_id: int, db: Session = Depends(get_db)):
+    """
+    Menghapus history streaming berdasarkan ID.
+    Mendukung penghapusan dari LiveHistory dan LiveSession.
+    """
+    service = LiveHistoryService(db)
+    success = service.delete_session(history_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail=f"History {history_id} tidak ditemukan")
+    
+    return {"success": True, "message": f"History {history_id} berhasil dihapus"}
+
+
 @router.get("/{history_id}")
 def get_history_detail(history_id: int, db: Session = Depends(get_db)):
     """
     Mendapatkan detail history berdasarkan ID dengan info video/playlist.
-    
-    **Response:**
-    ```json
-    {
-        "id": 5,
-        "mode": "playlist",
-        "playlist_id": 1,
-        "playlist_name": "24/7 Lofi Stream",
-        "video_count": 4,
-        "start_time": "2026-01-06T12:00:00",
-        "end_time": "2026-01-06T13:30:00",
-        "status": "success",
-        "duration": "01:30:00",
-        "error_message": null
-    }
-    ```
     """
     service = LiveHistoryService(db)
-    session = service.get_session(history_id)
     
+    # We need to handle both LiveHistory and LiveSession
+    from app.models.live_history import LiveHistory
+    from app.models.live_session import LiveSession
+    
+    session = db.query(LiveHistory).filter(LiveHistory.id == history_id).first()
+    if not session:
+        session = db.query(LiveSession).filter(LiveSession.id == history_id).first()
+        
     if not session:
         raise HTTPException(status_code=404, detail=f"History {history_id} tidak ditemukan")
     
@@ -147,12 +160,13 @@ def get_history_detail(history_id: int, db: Session = Depends(get_db)):
         "mode": session.mode,
         "video_id": session.video_id,
         "playlist_id": session.playlist_id,
+        "stream_key_id": session.stream_key_id,
         "start_time": session.start_time.isoformat() if session.start_time else None,
         "end_time": session.end_time.isoformat() if session.end_time else None,
+        "max_duration_hours": session.max_duration_hours,
         "status": session.status,
         "duration": session.get_duration_formatted(),
-        "duration_seconds": session._calculate_duration(),
-        "error_message": session.error_message
+        "duration_seconds": session.get_duration_seconds(),
     }
     
     # Add playlist/video info
@@ -204,6 +218,8 @@ def schedule_re_live(request: ReLiveRequest, db: Session = Depends(get_db)):
     }
     
     # Schedule based on mode
+    max_dur = request.max_duration_hours if request.max_duration_hours is not None else getattr(session, 'max_duration_hours', 0)
+    
     if session.mode == 'playlist' and session.playlist_id:
         # Get playlist
         playlist_service = PlaylistService(db)
@@ -224,7 +240,8 @@ def schedule_re_live(request: ReLiveRequest, db: Session = Depends(get_db)):
             run_time=request.scheduled_time,
             video_paths=video_paths,
             playlist_id=session.playlist_id,
-            max_duration_hours=getattr(session, 'max_duration_hours', 0)
+            stream_key_id=request.stream_key_id or getattr(session, 'stream_key_id', None),
+            max_duration_hours=max_dur
         )
         
         response["playlist_id"] = session.playlist_id
@@ -245,7 +262,8 @@ def schedule_re_live(request: ReLiveRequest, db: Session = Depends(get_db)):
             run_time=request.scheduled_time,
             video_paths=[video.path],
             video_id=session.video_id,
-            max_duration_hours=getattr(session, 'max_duration_hours', 0)
+            stream_key_id=request.stream_key_id or getattr(session, 'stream_key_id', None),
+            max_duration_hours=max_dur
         )
         
         response["video_id"] = session.video_id
@@ -282,8 +300,11 @@ def instant_re_live(request: ReStreamRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Data history {request.history_id} tidak ditemukan")
         
     # 2. Get Stream Key
-    # Jika history lama, stream_key_id mungkin null (karena dulu hardcoded)
-    stream_key_id = getattr(original, 'stream_key_id', None)
+    # Gunakan stream_key_id dari request jika ada, jika tidak gunakan dari original, jika tidak ada lagi cari default
+    stream_key_id = request.stream_key_id
+    
+    if not stream_key_id:
+        stream_key_id = getattr(original, 'stream_key_id', None)
     
     # Jika tidak ada stream_key_id (legacy), coba cari stream key default yang aktif
     from app.models.stream_key import StreamKey
@@ -296,20 +317,22 @@ def instant_re_live(request: ReStreamRequest, db: Session = Depends(get_db)):
         # Pastikan key masih ada dan aktif
         key = db.query(StreamKey).filter(StreamKey.id == stream_key_id).first()
         if not key or not key.is_active:
-             # Jika key yang lama tidak ada/mati, gunakan yang default aktif saja daripada error
+             # Jika key yang dipilih/lama tidak ada/mati, gunakan yang default aktif saja daripada error
              active_key = db.query(StreamKey).filter(StreamKey.is_active == True).first()
              if not active_key:
-                 raise HTTPException(status_code=400, detail="Stream Key asal sudah tidak aktif dan tidak ada key cadangan")
+                 raise HTTPException(status_code=400, detail="Stream Key yang dipilih tidak aktif dan tidak ada key cadangan")
              stream_key_id = active_key.id
 
     # 3. Create Manual Request
+    max_dur = request.max_duration_hours if request.max_duration_hours is not None else getattr(original, 'max_duration_hours', 0)
+    
     manual_request = ManualLiveRequest(
         stream_key_id=stream_key_id,
         video_id=getattr(original, 'video_id', None),
         playlist_id=getattr(original, 'playlist_id', None),
         mode=original.mode,
         loop=True,
-        max_duration_hours=getattr(original, 'max_duration_hours', 0),
+        max_duration_hours=max_dur,
         youtube_id=getattr(original, 'youtube_id', None)
     )
     
