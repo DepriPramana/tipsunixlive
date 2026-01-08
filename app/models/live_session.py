@@ -22,6 +22,7 @@ class LiveSession(Base):
     # Stream info
     mode = Column(String, nullable=False)  # 'single' or 'playlist'
     status = Column(String, default='running', nullable=False)  # running, stopped, failed
+    loop = Column(Boolean, default=True, nullable=False)
     
     # Process info
     ffmpeg_pid = Column(Integer, nullable=True)  # FFmpeg process ID
@@ -60,6 +61,7 @@ class LiveSession(Base):
             'last_error': self.last_error,
             'youtube_id': self.youtube_id,
             'max_duration_hours': self.max_duration_hours,
+            'loop': self.loop,
             'duration_seconds': self.get_duration_seconds(),
             'is_active': self.is_active()
         }
