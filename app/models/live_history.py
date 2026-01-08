@@ -46,7 +46,7 @@ class LiveHistory(Base):
     ffmpeg_pid = Column(Integer, nullable=True)  # FFmpeg process ID
     
     # Timestamps
-    start_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+    start_time = Column(DateTime, default=datetime.now, nullable=False)
     end_time = Column(DateTime, nullable=True)
     
     # Status
@@ -55,9 +55,10 @@ class LiveHistory(Base):
     # Stream info
     stream_key = Column(String, nullable=True)  # YouTube stream key (masked)
     error_message = Column(String, nullable=True)  # Error message jika failed
+    max_duration_hours = Column(Integer, default=0, nullable=True)  # Max duration in hours
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
     stream_key_rel = relationship("StreamKey", backref="live_histories")
@@ -83,6 +84,7 @@ class LiveHistory(Base):
             "status": self.status,
             "stream_key": self._mask_stream_key(self.stream_key) if self.stream_key else None,
             "error_message": self.error_message,
+            "max_duration_hours": self.max_duration_hours,
             "youtube_id": self.youtube_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "duration_seconds": self._calculate_duration(),
@@ -100,7 +102,7 @@ class LiveHistory(Base):
         if not self.start_time:
             return 0.0
         
-        end = self.end_time if self.end_time else datetime.utcnow()
+        end = self.end_time if self.end_time else datetime.now()
         duration = (end - self.start_time).total_seconds()
         return duration
     

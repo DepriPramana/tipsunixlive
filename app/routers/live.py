@@ -162,6 +162,7 @@ def start_manual_live(
         video_id=request.video_id,
         playlist_id=request.playlist_id,
         mode=request.mode,
+        loop=request.loop,
         status='starting',
         youtube_id=request.youtube_id,
         max_duration_hours=request.max_duration_hours

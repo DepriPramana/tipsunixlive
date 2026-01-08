@@ -67,6 +67,7 @@ def monitoring_dashboard(request: Request, db: Session = Depends(get_db)):
             'mode': session.mode,
             'ffmpeg_pid': session.ffmpeg_pid,
             'start_time': session.start_time,
+            'max_duration_hours': session.max_duration_hours,
             'runtime': runtime,
             'runtime_seconds': int(runtime_seconds)
         })
@@ -120,6 +121,7 @@ def get_active_sessions_api(db: Session = Depends(get_db)):
             'mode': session.mode,
             'ffmpeg_pid': session.ffmpeg_pid,
             'start_time': session.start_time.isoformat(),
+            'max_duration_hours': session.max_duration_hours,
             'runtime': runtime,
             'runtime_seconds': int(runtime_seconds)
         })

@@ -27,7 +27,8 @@ def _execute_scheduled_stream(
     video_id: Optional[int] = None,
     title: str = "Scheduled Live Stream",
     description: str = "",
-    use_youtube_api: bool = True
+    use_youtube_api: bool = True,
+    max_duration_hours: int = 0
 ):
     """
     Execute scheduled stream dengan LiveHistory tracking dan YouTube API.
@@ -107,7 +108,8 @@ def _execute_scheduled_stream(
             mode=mode,
             playlist_id=playlist_id,
             video_id=video_id,
-            stream_key=stream_key  # Save stream key to session
+            stream_key=stream_key,  # Save stream key to session
+            max_duration_hours=max_duration_hours
         )
         
         logger.info(f"✅ LiveHistory session created: {session.id}")
@@ -174,7 +176,8 @@ def schedule_live(
     video_id: Optional[int] = None,
     title: str = "Scheduled Live Stream",
     description: str = "",
-    use_youtube_api: bool = True
+    use_youtube_api: bool = True,
+    max_duration_hours: int = 0
 ):
     """
     Menjadwalkan live streaming dengan YouTube API integration.
@@ -206,7 +209,8 @@ def schedule_live(
             'video_id': video_id,
             'title': title,
             'description': description,
-            'use_youtube_api': use_youtube_api
+            'use_youtube_api': use_youtube_api,
+            'max_duration_hours': max_duration_hours
         }
     )
     

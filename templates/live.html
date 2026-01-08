@@ -373,6 +373,19 @@
                         <div class="form-text">Select future date and time</div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="scheduleDurationSelect">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                        <div class="form-text">Siaran akan berhenti otomatis setelah waktu habis.</div>
+                    </div>
+
                     <button type="submit" class="btn btn-warning w-100">
                         <i class="bi bi-clock"></i> Schedule Live
                     </button>
@@ -563,6 +576,7 @@
         const streamKeyId = document.getElementById('scheduleStreamKeySelect').value;
         const playlistId = document.getElementById('schedulePlaylistSelect').value;
         const dateTime = document.getElementById('scheduleDateTime').value;
+        const duration = document.getElementById('scheduleDurationSelect').value;
 
         if (!streamKeyId) {
             showToast('Please select a stream key', 'danger');
@@ -594,7 +608,8 @@
                 playlist_id: parseInt(playlistId),
                 scheduled_time: scheduledTime,
                 mode: 'playlist',
-                loop: true
+                loop: true,
+                max_duration_hours: parseInt(duration)
             });
 
             showToast('Scheduled successfully for ' + new Date(dateTime).toLocaleString(), 'success');

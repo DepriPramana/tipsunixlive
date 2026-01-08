@@ -41,6 +41,7 @@ class ReLiveScheduleRequest(BaseModel):
     scheduled_time: str  # ISO format
     stream_title: Optional[str] = None
     loop: bool = True
+    max_duration_hours: Optional[int] = 0
 
 
 @router.post("/start")
@@ -132,7 +133,8 @@ def start_relive(
         video_id=history.video_id,
         playlist_id=history.playlist_id,
         mode=history.mode,
-        status='starting'
+        status='starting',
+        max_duration_hours=request.max_duration_hours
     )
     
     db.add(session)
@@ -168,7 +170,8 @@ def start_relive(
             stream_title=request.stream_title or f"Re-Live: {history.stream_title or 'Untitled'}",
             ffmpeg_pid=process.pid,
             status='running',
-            stream_key=stream_key._mask_key()
+            stream_key=stream_key._mask_key(),
+            max_duration_hours=request.max_duration_hours
         )
         
         db.add(new_history)
@@ -246,7 +249,8 @@ def schedule_relive(
             video_id=history.video_id,
             playlist_id=history.playlist_id,
             mode=history.mode,
-            loop=request.loop
+            loop=request.loop,
+            max_duration_hours=request.max_duration_hours
         )
         
         return {

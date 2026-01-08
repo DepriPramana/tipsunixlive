@@ -22,6 +22,7 @@ class ScheduledLive(Base):
     mode = Column(String, nullable=False)  # 'single' or 'playlist'
     loop = Column(Boolean, default=True)
     recurrence = Column(String, default='none')  # none, daily, weekly
+    max_duration_hours = Column(Integer, default=0, nullable=True)  # Max duration in hours
     
     # Job info
     job_id = Column(String, unique=True, nullable=True)  # APScheduler job ID
@@ -49,6 +50,7 @@ class ScheduledLive(Base):
             'mode': self.mode,
             'loop': self.loop,
             'recurrence': self.recurrence,
+            'max_duration_hours': self.max_duration_hours,
             'job_id': self.job_id,
             'status': self.status,
             'live_session_id': self.live_session_id,

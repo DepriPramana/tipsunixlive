@@ -223,7 +223,8 @@ def schedule_re_live(request: ReLiveRequest, db: Session = Depends(get_db)):
         schedule_live(
             run_time=request.scheduled_time,
             video_paths=video_paths,
-            playlist_id=session.playlist_id
+            playlist_id=session.playlist_id,
+            max_duration_hours=getattr(session, 'max_duration_hours', 0)
         )
         
         response["playlist_id"] = session.playlist_id
@@ -243,7 +244,8 @@ def schedule_re_live(request: ReLiveRequest, db: Session = Depends(get_db)):
         schedule_live(
             run_time=request.scheduled_time,
             video_paths=[video.path],
-            video_id=session.video_id
+            video_id=session.video_id,
+            max_duration_hours=getattr(session, 'max_duration_hours', 0)
         )
         
         response["video_id"] = session.video_id
@@ -303,8 +305,8 @@ def instant_re_live(request: ReStreamRequest, db: Session = Depends(get_db)):
     # 3. Create Manual Request
     manual_request = ManualLiveRequest(
         stream_key_id=stream_key_id,
-        video_id=original.video_id,
-        playlist_id=original.playlist_id,
+        video_id=getattr(original, 'video_id', None),
+        playlist_id=getattr(original, 'playlist_id', None),
         mode=original.mode,
         loop=True,
         max_duration_hours=getattr(original, 'max_duration_hours', 0),

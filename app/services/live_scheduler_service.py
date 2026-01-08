@@ -39,7 +39,8 @@ class LiveSchedulerService:
         playlist_id: Optional[int] = None,
         mode: str = 'playlist',
         loop: bool = True,
-        recurrence: str = 'none'
+        recurrence: str = 'none',
+        max_duration_hours: int = 0
     ) -> ScheduledLive:
         """
         Schedule live streaming.
@@ -84,6 +85,7 @@ class LiveSchedulerService:
             mode=mode,
             loop=loop,
             recurrence=recurrence,
+            max_duration_hours=max_duration_hours,
             status='pending'
         )
         
@@ -225,7 +227,8 @@ class LiveSchedulerService:
                 video_id=scheduled_live.video_id,
                 playlist_id=scheduled_live.playlist_id,
                 mode=scheduled_live.mode,
-                status='starting'
+                status='starting',
+                max_duration_hours=scheduled_live.max_duration_hours
             )
             
             db.add(live_session)
@@ -277,7 +280,8 @@ class LiveSchedulerService:
                         playlist_id=scheduled_live.playlist_id,
                         mode=scheduled_live.mode,
                         loop=scheduled_live.loop,
-                        recurrence=scheduled_live.recurrence
+                        recurrence=scheduled_live.recurrence,
+                        max_duration_hours=scheduled_live.max_duration_hours
                     )
             
             logger.info(f"[OK] Scheduled live {scheduled_live_id} executed successfully")

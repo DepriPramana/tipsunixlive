@@ -26,7 +26,8 @@ class LiveHistoryService:
         self,
         mode: str,
         video_id: Optional[int] = None,
-        playlist_id: Optional[int] = None
+        playlist_id: Optional[int] = None,
+        max_duration_hours: int = 0
     ) -> LiveHistory:
         """
         Create new live streaming session.
@@ -47,7 +48,8 @@ class LiveHistoryService:
             playlist_id=playlist_id,
             status='running',
             stream_key=YOUTUBE_STREAM_KEY,
-            start_time=datetime.utcnow()
+            start_time=datetime.utcnow(),
+            max_duration_hours=max_duration_hours
         )
         
         self.db.add(session)
