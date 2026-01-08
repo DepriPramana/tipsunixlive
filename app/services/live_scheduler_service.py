@@ -228,7 +228,8 @@ class LiveSchedulerService:
                 playlist_id=scheduled_live.playlist_id,
                 mode=scheduled_live.mode,
                 status='starting',
-                max_duration_hours=scheduled_live.max_duration_hours
+                max_duration_hours=scheduled_live.max_duration_hours,
+                start_time=datetime.utcnow()
             )
             
             db.add(live_session)

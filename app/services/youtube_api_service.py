@@ -5,7 +5,7 @@ Handles OAuth2 authentication, live broadcast creation, and stream management.
 import os
 import pickle
 import logging
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -131,7 +131,17 @@ class YouTubeAPIService:
         title: str,
         description: str = "",
         scheduled_start_time: Optional[datetime] = None,
-        privacy_status: str = "public"
+        privacy_status: str = "public",
+        enable_dvr: bool = True,
+        made_for_kids: bool = False,
+        category_id: str = "24",  # Default: Entertainment
+        enable_embed: bool = True,
+        enable_chat: bool = True,
+        tags: Optional[str] = None,
+        language: str = "id",
+        license: str = "youtube",  # youtube, creativeCommon
+        auto_start: bool = True,
+        auto_stop: bool = True
     ) -> Optional[Dict]:
         """
         Create live broadcast di YouTube.
@@ -141,6 +151,16 @@ class YouTubeAPIService:
             description: Deskripsi broadcast
             scheduled_start_time: Waktu mulai (None untuk now)
             privacy_status: public, unlisted, atau private
+            enable_dvr: Aktifkan DVR
+            made_for_kids: Ditandai untuk anak-anak
+            category_id: YouTube category ID
+            enable_embed: Izinkan embedding
+            enable_chat: Aktifkan live chat
+            tags: Tags
+            language: Language
+            license: License
+            auto_start: Auto Start
+            auto_stop: Auto Stop
             
         Returns:
             Broadcast object atau None jika gagal
@@ -165,20 +185,31 @@ class YouTubeAPIService:
                     "snippet": {
                         "title": title,
                         "description": description,
-                        "scheduledStartTime": start_time_iso
+                        "scheduledStartTime": start_time_iso,
+                        "categoryId": category_id,
+                        # Attempt to set video metadata on broadcast creation
+                        "tags": [t.strip() for t in tags.split(',')] if tags else [],
+                        "defaultLanguage": language,
+                        "defaultAudioLanguage": language
                     },
                     "status": {
                         "privacyStatus": privacy_status,
-                        "selfDeclaredMadeForKids": False
+                        "selfDeclaredMadeForKids": made_for_kids,
+                        "license": license
                     },
                     "contentDetails": {
-                        "enableAutoStart": True,
-                        "enableAutoStop": True,
-                        "enableDvr": True,
+                        "enableAutoStart": auto_start,
+                        "enableAutoStop": auto_stop,
+                        "enableDvr": enable_dvr,
                         "enableContentEncryption": False,
-                        "enableEmbed": True,
+                        "enableEmbed": enable_embed,
                         "recordFromStart": True,
-                        "startWithSlate": False
+                        "startWithSlate": False,
+                        "enableLiveChat": enable_chat,
+                        "monitorStream": {
+                            "enableMonitorStream": True,
+                            "broadcastStreamDelayMs": 0
+                        }
                     }
                 }
             )
@@ -186,9 +217,6 @@ class YouTubeAPIService:
             broadcast = broadcast_request.execute()
             
             logger.info(f"✅ Broadcast created: {broadcast['id']}")
-            logger.info(f"   Title: {broadcast['snippet']['title']}")
-            logger.info(f"   Status: {broadcast['status']['lifeCycleStatus']}")
-            
             return broadcast
             
         except HttpError as e:
@@ -199,7 +227,8 @@ class YouTubeAPIService:
         self,
         title: str,
         resolution: str = "1080p",
-        frame_rate: str = "30fps"
+        frame_rate: str = "30fps",
+        latency_mode: str = "normal"  # normal, low, ultraLow
     ) -> Optional[Dict]:
         """
         Create live stream di YouTube.
@@ -208,6 +237,7 @@ class YouTubeAPIService:
             title: Judul stream
             resolution: 1080p, 720p, 480p, 360p, 240p
             frame_rate: 30fps atau 60fps
+            latency_mode: normal, low, atau ultraLow
             
         Returns:
             Stream object atau None jika gagal
@@ -216,7 +246,7 @@ class YouTubeAPIService:
             logger.error("YouTube service not initialized")
             return None
         
-        logger.info(f"🎥 Creating live stream: {title}")
+        logger.info(f"🎥 Creating live stream: {title} (Latency: {latency_mode})")
         
         try:
             stream_request = self.youtube.liveStreams().insert(
@@ -229,10 +259,14 @@ class YouTubeAPIService:
                     "cdn": {
                         "frameRate": frame_rate,
                         "ingestionType": "rtmp",
-                        "resolution": resolution
+                        "resolution": resolution,
+                        "latencyPreference": latency_mode
                     },
                     "status": {
                         "streamStatus": "active"
+                    },
+                    "contentDetails": {
+                        "isReusable": True
                     }
                 }
             )
@@ -240,15 +274,12 @@ class YouTubeAPIService:
             stream = stream_request.execute()
             
             logger.info(f"✅ Stream created: {stream['id']}")
-            logger.info(f"   Title: {stream['snippet']['title']}")
-            logger.info(f"   Ingestion: {stream['cdn']['ingestionInfo']['ingestionAddress']}")
-            
             return stream
             
         except HttpError as e:
             logger.error(f"❌ Failed to create stream: {e}")
             return None
-    
+
     def bind_broadcast_to_stream(
         self,
         broadcast_id: str,
@@ -336,7 +367,19 @@ class YouTubeAPIService:
         scheduled_start_time: Optional[datetime] = None,
         privacy_status: str = "public",
         resolution: str = "1080p",
-        frame_rate: str = "30fps"
+        frame_rate: str = "30fps",
+        latency_mode: str = "normal",
+        enable_dvr: bool = True,
+        made_for_kids: bool = False,
+        category_id: str = "24",
+        enable_embed: bool = True,
+        enable_chat: bool = True,
+        tags: Optional[str] = None,
+        language: str = "id",
+        license: str = "youtube",
+        auto_start: bool = True,
+        auto_stop: bool = True,
+        playlist_id: Optional[str] = None
     ) -> Optional[Dict]:
         """
         Create complete live setup: broadcast + stream + bind.
@@ -348,6 +391,18 @@ class YouTubeAPIService:
             privacy_status: public, unlisted, private
             resolution: 1080p, 720p, etc
             frame_rate: 30fps atau 60fps
+            latency_mode: normal, low, ultraLow
+            enable_dvr: Aktifkan DVR
+            made_for_kids: MenDeclared Made for Kids
+            category_id: YouTube category ID
+            enable_embed: Izinkan embedding
+            enable_chat: Aktifkan live chat
+            tags: Tags
+            language: Language
+            license: License
+            auto_start: Auto Start
+            auto_stop: Auto Stop
+            playlist_id: Optional Playlist ID to add video to
             
         Returns:
             Dictionary berisi broadcast, stream, dan stream_key
@@ -366,7 +421,17 @@ class YouTubeAPIService:
             title=title,
             description=description,
             scheduled_start_time=scheduled_start_time,
-            privacy_status=privacy_status
+            privacy_status=privacy_status,
+            enable_dvr=enable_dvr,
+            made_for_kids=made_for_kids,
+            category_id=category_id,
+            enable_embed=enable_embed,
+            enable_chat=enable_chat,
+            tags=tags,
+            language=language,
+            license=license,
+            auto_start=auto_start,
+            auto_stop=auto_stop
         )
         
         if not broadcast:
@@ -376,7 +441,8 @@ class YouTubeAPIService:
         stream = self.create_live_stream(
             title=f"Stream for {title}",
             resolution=resolution,
-            frame_rate=frame_rate
+            frame_rate=frame_rate,
+            latency_mode=latency_mode
         )
         
         if not stream:
@@ -416,6 +482,10 @@ class YouTubeAPIService:
         logger.info(f"Stream Key: {result['stream_key']}")
         logger.info(f"RTMP URL: {result['rtmp_url']}")
         logger.info("="*60)
+
+        # Step 6: Add to Playlist if provided
+        if playlist_id:
+            self.add_video_to_playlist(playlist_id, broadcast['id'])
         
         return result
     
@@ -469,5 +539,90 @@ class YouTubeAPIService:
             return False
 
 
+    def set_thumbnail(self, broadcast_id: str, image_path: str) -> bool:
+        """
+        Set custom thumbnail untuk broadcast.
+        
+        Args:
+            broadcast_id: ID broadcast
+            image_path: Path ke file gambar
+            
+        Returns:
+            True jika berhasil
+        """
+        if not self.youtube:
+            return False
+            
+        logger.info(f"🖼️ Setting thumbnail for broadcast {broadcast_id}: {image_path}")
+        
+        try:
+            from googleapiclient.http import MediaFilePathUpload
+            
+            # Validasi file
+            if not os.path.exists(image_path):
+                logger.error(f"Thumbnail file not found: {image_path}")
+                return False
+                
+            self.youtube.thumbnails().set(
+                videoId=broadcast_id,
+                media_body=MediaFilePathUpload(image_path, chunksize=-1, resumable=True)
+            ).execute()
+            
+            logger.info(f"✅ Thumbnail updated successfully")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to set thumbnail: {e}")
+            return False
+
+
+
+    def list_playlists(self, mine: bool = True) -> List[Dict]:
+        """
+        List user's playlists.
+        """
+        if not self.youtube:
+            if not self.authenticate():
+                return []
+        
+        try:
+            request = self.youtube.playlists().list(
+                part="snippet,contentDetails",
+                mine=mine,
+                maxResults=50
+            )
+            response = request.execute()
+            return response.get('items', [])
+        except HttpError as e:
+            logger.error(f"Failed to list playlists: {e}")
+            return []
+
+    def add_video_to_playlist(self, playlist_id: str, video_id: str) -> bool:
+        """
+        Add a video to a playlist.
+        """
+        if not self.youtube:
+            return False
+            
+        try:
+            self.youtube.playlistItems().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {
+                            "kind": "youtube#video",
+                            "videoId": video_id
+                        }
+                    }
+                }
+            ).execute()
+            logger.info(f"✅ Video {video_id} added to playlist {playlist_id}")
+            return True
+        except HttpError as e:
+            logger.error(f"Failed to add video to playlist: {e}")
+            return False
+
+
 # Global instance
+
 youtube_api = YouTubeAPIService()

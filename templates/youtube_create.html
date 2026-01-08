@@ -104,7 +104,7 @@
                         </div>
                     </div>
 
-                    <div class="row align-items-end">
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">YouTube Account / Channel <span
@@ -115,12 +115,6 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                {% if not youtube_accounts %}
-                                <div class="text-danger small mt-1">
-                                    <i class="bi bi-exclamation-circle"></i> No active accounts. <a
-                                        href="/dashboard/youtube-accounts">Add one here</a>.
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -130,7 +124,125 @@
                             </div>
                         </div>
                     </div>
-                    <small class="text-muted d-block mb-3">Leave empty to start immediately (5 minutes from now)</small>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Latency Mode</label>
+                                <select class="form-select" id="latencyMode">
+                                    <option value="normal" selected>Normal (High Quality)</option>
+                                    <option value="low">Low (Good Interaction)</option>
+                                    <option value="ultraLow">Ultra Low (Real-time)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Video Category</label>
+                                <select class="form-select" id="categoryId">
+                                    <option value="24" selected>Entertainment</option>
+                                    <option value="20">Gaming</option>
+                                    <option value="22">People & Blogs</option>
+                                    <option value="10">Music</option>
+                                    <option value="27">Education</option>
+                                    <option value="25">News & Politics</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Custom Thumbnail (Optional)</label>
+                                <input type="file" class="form-control" id="thumbnail" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="tags"
+                                    placeholder="gaming, music, lofi (comma separated)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Language</label>
+                                <select class="form-select" id="language">
+                                    <option value="id" selected>Indonesian</option>
+                                    <option value="en">English</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="ko">Korean</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">License</label>
+                                <select class="form-select" id="license">
+                                    <option value="youtube" selected>Standard YouTube License</option>
+                                    <option value="creativeCommon">Creative Commons</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Add to Playlist (Optional)</label>
+                                <select class="form-select" id="playlistId">
+                                    <option value="">-- Select Playlist --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enableDvr" checked>
+                                <label class="form-check-label" for="enableDvr">
+                                    Enable DVR (Rewind while live)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="madeForKids">
+                                <label class="form-check-label" for="madeForKids">
+                                    Made for Kids (COPPA)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enableEmbed" checked>
+                                <label class="form-check-label" for="enableEmbed">
+                                    Embed
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enableChat" checked>
+                                <label class="form-check-label" for="enableChat">
+                                    Chat
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoStart" checked>
+                                <label class="form-check-label" for="autoStart">Auto Start</label>
+                            </div>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="autoStop" checked>
+                                <label class="form-check-label" for="autoStop">Auto Stop</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <small class="text-muted d-block mb-3">Leave empty to start immediately (5 minutes from
+                        now)</small>
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary" id="createSingleBtn">
@@ -190,6 +302,131 @@
                         </div>
                     </div>
 
+                    <!-- Advanced Batch Settings -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Latency Mode</label>
+                                <select class="form-select" id="multiLatencyMode">
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="low">Low</option>
+                                    <option value="ultraLow">Ultra Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Resolution</label>
+                                <select class="form-select" id="multiResolution">
+                                    <option value="1080p" selected>1080p</option>
+                                    <option value="720p">720p</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" id="multiCategoryId">
+                                    <option value="24" selected>Entertainment</option>
+                                    <option value="20">Gaming</option>
+                                    <option value="10">Music</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Scheduled Start Time (First Broadcast)</label>
+                                <input type="datetime-local" class="form-control" id="multiScheduledTime">
+                                <small class="text-muted">Leave empty to start immediately</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Tags (All)</label>
+                                <input type="text" class="form-control" id="multiTags"
+                                    placeholder="gaming, music, lofi">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Language</label>
+                                <select class="form-select" id="multiLanguage">
+                                    <option value="id" selected>Indonesian</option>
+                                    <option value="en">English</option>
+                                    <option value="ja">Japanese</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">License</label>
+                                <select class="form-select" id="multiLicense">
+                                    <option value="youtube" selected>Standard</option>
+                                    <option value="creativeCommon">Creative Commons</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Add to Playlist</label>
+                                <select class="form-select" id="multiPlaylistId">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Batch Thumbnail</label>
+                                <input type="file" class="form-control" id="multiThumbnail" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiEnableDvr" checked>
+                                <label class="form-check-label" for="multiEnableDvr">Enable DVR</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiMadeForKids">
+                                <label class="form-check-label" for="multiMadeForKids">Made for Kids</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiEnableEmbed" checked>
+                                <label class="form-check-label" for="multiEnableEmbed">Embed</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiEnableChat" checked>
+                                <label class="form-check-label" for="multiEnableChat">Chat</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiAutoStart" checked>
+                                <label class="form-check-label" for="multiAutoStart">Auto Start</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="multiAutoStop" checked>
+                                <label class="form-check-label" for="multiAutoStop">Auto Stop</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary" id="createMultipleBtn">
                             <i class="bi bi-collection"></i> Create All Broadcasts
@@ -219,6 +456,25 @@
 
 {% block extra_js %}
 <script>
+    // Load Playlists
+    async function loadPlaylists() {
+        try {
+            const response = await axios.get('/youtube/playlists');
+            const playlists = response.data;
+            const singleSelect = document.getElementById('playlistId');
+            const multiSelect = document.getElementById('multiPlaylistId');
+
+            playlists.forEach(pl => {
+                const option = new Option(pl.snippet.title, pl.id);
+                singleSelect.add(option.cloneNode(true));
+                multiSelect.add(option);
+            });
+        } catch (error) {
+            console.error('Failed to load playlists', error);
+        }
+    }
+    loadPlaylists();
+
     // Create Single Broadcast
     document.getElementById('singleBroadcastForm').addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -227,17 +483,39 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
 
-        const data = {
-            broadcast_title: document.getElementById('broadcastTitle').value,
-            stream_name: document.getElementById('streamName').value,
-            description: document.getElementById('description').value,
-            privacy_status: document.getElementById('privacyStatus').value,
-            scheduled_start_time: document.getElementById('scheduledTime').value || null,
-            account_id: document.getElementById('accountId').value
-        };
+        const formData = new FormData();
+        formData.append('broadcast_title', document.getElementById('broadcastTitle').value);
+        formData.append('stream_name', document.getElementById('streamName').value);
+        formData.append('description', document.getElementById('description').value);
+        formData.append('privacy_status', document.getElementById('privacyStatus').value);
+        formData.append('resolution', document.getElementById('resolution').value);
+        formData.append('frame_rate', document.getElementById('frameRate').value);
+        formData.append('scheduled_start_time', document.getElementById('scheduledTime').value || '');
+        formData.append('account_id', document.getElementById('accountId').value);
+        formData.append('latency_mode', document.getElementById('latencyMode').value);
+        formData.append('category_id', document.getElementById('categoryId').value);
+        formData.append('enable_dvr', document.getElementById('enableDvr').checked);
+        formData.append('made_for_kids', document.getElementById('madeForKids').checked);
+        formData.append('enable_embed', document.getElementById('enableEmbed').checked);
+        formData.append('enable_chat', document.getElementById('enableChat').checked);
+        formData.append('tags', document.getElementById('tags').value);
+        formData.append('language', document.getElementById('language').value);
+        formData.append('license', document.getElementById('license').value);
+        formData.append('playlist_id', document.getElementById('playlistId').value);
+        formData.append('auto_start', document.getElementById('autoStart').checked);
+        formData.append('auto_stop', document.getElementById('autoStop').checked);
+
+        const thumbFile = document.getElementById('thumbnail').files[0];
+        if (thumbFile) {
+            formData.append('thumbnail', thumbFile);
+        }
 
         try {
-            const response = await axios.post('/youtube/create-live-setup', data);
+            const response = await axios.post('/youtube/create-live-setup', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
 
             showToast('Broadcast created successfully!', 'success');
 
@@ -271,49 +549,95 @@
         const numBroadcasts = parseInt(document.getElementById('numBroadcasts').value);
         const titleTemplate = document.getElementById('titleTemplate').value;
         const streamTemplate = document.getElementById('streamTemplate').value;
-        const privacyStatus = document.getElementById('multiPrivacyStatus').value;
-        const description = document.getElementById('multiDescription').value;
+        const scheduledTime = document.getElementById('multiScheduledTime').value;
+        const accountId = document.getElementById('accountId').value;
 
-        // Generate setups
+        // Helper to add minutes
+        function addMinutes(date, minutes) {
+            return new Date(date.getTime() + minutes * 60000);
+        }
+
+        // Generate Setups
         const setups = [];
+        let currentTime = scheduledTime ? new Date(scheduledTime) : new Date();
+        // If not scheduled, start first one now + 5 mins
+        if (!scheduledTime) {
+            currentTime = addMinutes(currentTime, 5);
+        }
+
+        // Get common values
+        const enableDvr = document.getElementById('multiEnableDvr').checked;
+        const madeForKids = document.getElementById('multiMadeForKids').checked;
+        const enableEmbed = document.getElementById('multiEnableEmbed').checked;
+        const enableChat = document.getElementById('multiEnableChat').checked;
+        const categoryId = document.getElementById('multiCategoryId').value;
+
         for (let i = 1; i <= numBroadcasts; i++) {
+            const title = titleTemplate.replace('{n}', i);
+            const streamName = streamTemplate.replace('{n}', i);
+
+            // Stagger start times (e.g. same time or logic? For now assume same time or concurrent)
+            // Or maybe user wants sequential?
+            // Let's keep them same start time for now as per "Multiple independent broadcasts" usually implies batch creation for same event or multiple channels
+            // But here it creates on SAME channel. So probably different events.
+            // Let's just use same start time for all for now.
+
             setups.push({
-                broadcast_title: titleTemplate.replace('{n}', i),
-                stream_name: streamTemplate.replace('{n}', i),
-                description: description,
-                privacy_status: privacyStatus
+                broadcast_title: title,
+                stream_name: streamName,
+                description: document.getElementById('multiDescription').value,
+                scheduled_start_time: currentTime.toISOString(),
+                privacy_status: document.getElementById('multiPrivacyStatus').value,
+                resolution: document.getElementById('multiResolution').value,
+                frame_rate: '30fps', // Fixed for now or add input
+                latency_mode: document.getElementById('multiLatencyMode').value,
+                enable_dvr: enableDvr,
+                made_for_kids: madeForKids,
+                category_id: categoryId,
+                enable_embed: enableEmbed,
+                enable_chat: enableChat,
+                tags: document.getElementById('multiTags').value,
+                language: document.getElementById('multiLanguage').value,
+                license: document.getElementById('multiLicense').value,
+                playlist_id: document.getElementById('multiPlaylistId').value,
+                auto_start: document.getElementById('multiAutoStart').checked,
+                auto_stop: document.getElementById('multiAutoStop').checked
             });
         }
 
-        const account_id = document.getElementById('accountId').value;
-
         try {
-            const response = await axios.post('/youtube/create-multiple-lives', {
-                setups,
-                account_id: account_id
+            const formData = new FormData();
+            formData.append('setups', JSON.stringify(setups));
+            formData.append('account_id', accountId);
+
+            const thumbFile = document.getElementById('multiThumbnail').files[0];
+            if (thumbFile) {
+                formData.append('thumbnail', thumbFile);
+            }
+
+            const response = await axios.post('/youtube/create-multiple-lives', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
             });
 
-            const result = response.data;
-            progressBar.style.width = '100%';
-            progressStatus.innerHTML = `
-                <div class="alert alert-success">
-                    <h5>✅ Batch Creation Complete!</h5>
-                    <p>Total Requested: ${result.total_requested}</p>
-                    <p>Successfully Created: ${result.total_created}</p>
-                    <p>Failed: ${result.total_failed}</p>
-                </div>
-            `;
+            progressDiv.style.display = 'none';
+            const data = response.data;
+            const successCount = data.total_created;
+            const failCount = data.total_failed;
 
-            showToast(`${result.total_created} broadcasts created successfully!`, 'success');
+            let msg = `Completed! Success: ${successCount}, Failed: ${failCount}`;
+            if (failCount > 0) {
+                msg += '\nCheck logs for details.';
+            }
 
-            setTimeout(() => {
-                window.location.href = '/admin/youtube/broadcasts';
-            }, 2000);
+            alert(msg);
+            window.location.href = '/admin/youtube/broadcasts';
 
         } catch (error) {
+            progressDiv.style.display = 'none';
             showToast(error.response?.data?.detail || 'Failed to create broadcasts', 'danger');
             btn.disabled = false;
-            progressDiv.style.display = 'none';
         }
     });
 </script>

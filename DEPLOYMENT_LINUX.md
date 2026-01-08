@@ -92,7 +92,12 @@ sudo systemctl start streamlive
 ```
 
 ### 6. Reverse Proxy (Nginx) - Port 8787
-Gunakan Nginx untuk ekspos aplikasi ke internet via port 8787:
+
+Jika mengunakan Hestia CP taruh disini config dibawah
+```bash
+sudo nano /etc/nginx/conf.d/streamlive.conf
+```
+Jika linux biasa Gunakan Nginx untuk ekspos aplikasi ke internet via port 8787:
 ```bash
 sudo nano /etc/nginx/sites-available/streamlive
 ```
@@ -137,3 +142,7 @@ sudo ufw enable
 *   **Cek log aplikasi:** `journalctl -u streamlive -f`
 *   **Cek log nginx:** `sudo tail -f /var/log/nginx/error.log`
 *   **Restart Server:** `sudo systemctl restart streamlive`
+*   **Cek log ffmpeg:** `sudo ss -antp | grep 1935`
+*   **Kill ffmpeg:** `sudo pkill -9 ffmpeg`
+
+

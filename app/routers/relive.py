@@ -134,7 +134,8 @@ def start_relive(
         playlist_id=history.playlist_id,
         mode=history.mode,
         status='starting',
-        max_duration_hours=request.max_duration_hours
+        max_duration_hours=request.max_duration_hours,
+        start_time=datetime.utcnow()
     )
     
     db.add(session)

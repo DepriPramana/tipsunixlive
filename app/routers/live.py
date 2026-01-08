@@ -165,7 +165,8 @@ def start_manual_live(
         loop=request.loop,
         status='starting',
         youtube_id=request.youtube_id,
-        max_duration_hours=request.max_duration_hours
+        max_duration_hours=request.max_duration_hours,
+        start_time=datetime.utcnow()
     )
     
     db.add(session)

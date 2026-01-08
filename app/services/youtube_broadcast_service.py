@@ -29,7 +29,19 @@ class YouTubeBroadcastService:
         privacy_status: str = 'public',
         resolution: str = '1080p',
         frame_rate: str = '30fps',
-        scheduled_start_time: Optional[datetime] = None
+        scheduled_start_time: Optional[datetime] = None,
+        latency_mode: str = 'normal',
+        enable_dvr: bool = True,
+        made_for_kids: bool = False,
+        category_id: str = '24',
+        thumbnail_url: Optional[str] = None,
+        enable_embed: bool = True,
+        enable_chat: bool = True,
+        tags: Optional[str] = None,
+        language: str = "id",
+        license: str = "youtube",
+        auto_start: bool = True,
+        auto_stop: bool = True
     ) -> YouTubeBroadcast:
         """
         Create new YouTube broadcast record.
@@ -47,6 +59,18 @@ class YouTubeBroadcastService:
             resolution: Video resolution
             frame_rate: Video frame rate
             scheduled_start_time: Scheduled start time
+            latency_mode: Latency mode
+            enable_dvr: Enable DVR
+            made_for_kids: Made for kids
+            category_id: YouTube category ID
+            thumbnail_url: URL to thumbnail image
+            enable_embed: Enable embedding
+            enable_chat: Enable live chat
+            tags: Tags
+            language: Language
+            license: License
+            auto_start: Auto Start
+            auto_stop: Auto Stop
             
         Returns:
             YouTubeBroadcast object
@@ -64,6 +88,18 @@ class YouTubeBroadcastService:
             resolution=resolution,
             frame_rate=frame_rate,
             scheduled_start_time=scheduled_start_time,
+            latency_mode=latency_mode,
+            enable_dvr=enable_dvr,
+            made_for_kids=made_for_kids,
+            category_id=category_id,
+            thumbnail_url=thumbnail_url,
+            enable_embed=enable_embed,
+            enable_chat=enable_chat,
+            tags=tags,
+            language=language,
+            license=license,
+            auto_start=auto_start,
+            auto_stop=auto_stop,
             status='ready'
         )
         
@@ -160,4 +196,18 @@ class YouTubeBroadcastService:
         
         logger.info(f"✅ Broadcast {broadcast_id} linked to LiveHistory {live_history_id}")
         
+        return broadcast
+    def update_thumbnail(
+        self,
+        broadcast_id: str,
+        thumbnail_url: str
+    ) -> Optional[YouTubeBroadcast]:
+        """Update broadcast thumbnail URL"""
+        broadcast = self.get_broadcast(broadcast_id)
+        if not broadcast:
+            return None
+            
+        broadcast.thumbnail_url = thumbnail_url
+        self.db.commit()
+        self.db.refresh(broadcast)
         return broadcast

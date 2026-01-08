@@ -28,7 +28,7 @@ class LiveSession(Base):
     ffmpeg_pid = Column(Integer, nullable=True)  # FFmpeg process ID
     
     # Timestamps
-    start_time = Column(DateTime, default=datetime.now, nullable=False)
+    start_time = Column(DateTime, default=datetime.utcnow, nullable=False)
     end_time = Column(DateTime, nullable=True)
     
     # Auto-recovery
@@ -71,7 +71,7 @@ class LiveSession(Base):
         if not self.start_time:
             return 0
         
-        end = self.end_time or datetime.now()
+        end = self.end_time or datetime.utcnow()
         return (end - self.start_time).total_seconds()
     
     def get_duration_formatted(self) -> str:

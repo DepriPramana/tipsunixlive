@@ -2,7 +2,7 @@
 Model untuk YouTube Broadcast.
 Menyimpan info broadcast yang dibuat via YouTube API.
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -33,6 +33,24 @@ class YouTubeBroadcast(Base):
     resolution = Column(String, default='1080p')
     frame_rate = Column(String, default='30fps')
     
+    # Advanced settings
+    latency_mode = Column(String, default='normal')  # normal, low, ultraLow
+    enable_dvr = Column(Boolean, default=True)
+    made_for_kids = Column(Boolean, default=False)
+    category_id = Column(String, default='24')  # Default: Entertainment
+    thumbnail_url = Column(String, nullable=True)
+    enable_embed = Column(Boolean, default=True)
+    enable_chat = Column(Boolean, default=True)
+    
+    # Discovery & License
+    tags = Column(String, nullable=True)  # Comma separated
+    language = Column(String, default='id')  # Default: Indonesian
+    license = Column(String, default='youtube')  # youtube, creativeCommon
+    
+    # Auto Control
+    auto_start = Column(Boolean, default=True)
+    auto_stop = Column(Boolean, default=True)
+    
     # Status
     status = Column(String, default='ready')  # ready, live, complete, error
     
@@ -61,6 +79,18 @@ class YouTubeBroadcast(Base):
             'resolution': self.resolution,
             'frame_rate': self.frame_rate,
             'status': self.status,
+            'latency_mode': self.latency_mode,
+            'enable_dvr': self.enable_dvr,
+            'made_for_kids': self.made_for_kids,
+            'category_id': self.category_id,
+            'thumbnail_url': self.thumbnail_url,
+            'enable_embed': self.enable_embed,
+            'enable_chat': self.enable_chat,
+            'tags': self.tags,
+            'language': self.language,
+            'license': self.license,
+            'auto_start': self.auto_start,
+            'auto_stop': self.auto_stop,
             'scheduled_start_time': self.scheduled_start_time.isoformat() if self.scheduled_start_time else None,
             'actual_start_time': self.actual_start_time.isoformat() if self.actual_start_time else None,
             'actual_end_time': self.actual_end_time.isoformat() if self.actual_end_time else None,
