@@ -27,7 +27,15 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3-pip python3-venv ffmpeg git nginx
 ```
 
-### 2. Persiapan Project
+### 2. Konfigurasi Timezone
+Sangat penting agar jadwal streaming dan log sesuai dengan waktu lokal Anda:
+```bash
+sudo timedatectl set-timezone Asia/Makassar
+# Verifikasi
+timedatectl
+```
+
+### 3. Persiapan Project
 ```bash
 git clone <repository-url> streamlive
 cd streamlive
@@ -41,7 +49,7 @@ pip install -r requirements.txt
 pip install gunicorn uvicorn
 ```
 
-### 3. Konfigurasi Environment & Database
+### 4. Konfigurasi Environment & Database
 ```bash
 cp .env.example .env
 # Edit .env dan sesuaikan YOUTUBE_STREAM_KEY
@@ -52,7 +60,7 @@ python3 init_db.py
 python3 seed_user.py  # User: admin, Pass: admin123
 ```
 
-### 4. Konfigurasi Autostart (Systemd)
+### 5. Konfigurasi Autostart (Systemd)
 Buat file service agar aplikasi berjalan otomatis di background:
 ```bash
 sudo nano /etc/systemd/system/streamlive.service
@@ -83,7 +91,7 @@ sudo systemctl enable streamlive
 sudo systemctl start streamlive
 ```
 
-### 5. Reverse Proxy (Nginx) - Port 8787
+### 6. Reverse Proxy (Nginx) - Port 8787
 Gunakan Nginx untuk ekspos aplikasi ke internet via port 8787:
 ```bash
 sudo nano /etc/nginx/sites-available/streamlive
@@ -110,7 +118,7 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### 6. Firewall Setup
+### 7. Firewall Setup
 ```bash
 sudo ufw allow 8787/tcp
 sudo ufw allow ssh
