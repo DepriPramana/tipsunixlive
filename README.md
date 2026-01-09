@@ -2,45 +2,101 @@
 
 Sistem live streaming 24/7 untuk YouTube dengan support multiple stream keys dan concurrent streams.
 
-## 🚀 Quick Start
+## 🚀 Installation & Deployment
 
-### 1. Install Dependencies
+Choose your preferred method to run StreamLive.
 
+### 🐳 Docker (Recommended)
+
+The easiest way to run StreamLive is using Docker Compose.
+
+1.  **Clone Release**
+    ```bash
+    git clone https://github.com/DepriPramana/streamlive.git
+    cd streamlive
+    ```
+
+2.  **Configure Environment**
+    ```bash
+    cp .env.example .env
+    # Edit .env and set your configurations (Database, Timezone, etc.)
+    ```
+
+3.  **Run with Docker Compose**
+    ```bash
+    docker-compose up -d
+    ```
+    
+    The server will start at **http://localhost:8000**
+
+---
+
+### 🐧 Linux (Manual Production)
+
+For production deployment on Ubuntu/Debian server without Docker.
+
+**Quick Setup:**
 ```bash
+# 1. Install Dependencies
+sudo apt update && sudo apt install -y python3-pip python3-venv ffmpeg git nginx
+
+# 2. Clone & Setup
+git clone https://github.com/DepriPramana/streamlive.git
+cd streamlive
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+
+# 3. Configure
+cp .env.example .env
+python3 init_db.py
+python3 seed_user.py
+
+# 4. Run
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Setup Database
+> 📖 **Full Guide:** Read [DEPLOYMENT_LINUX.md](DEPLOYMENT_LINUX.md) for detailed production setup including Nginx, Systemd services, and Firewall configuration.
 
-```bash
-# Migrate semua tables
-python migrate_stream_keys.py
-python migrate_live_sessions.py
-python migrate_scheduled_lives.py
-python migrate_live_history_update.py
+---
 
-# Seed sample data (optional)
-python seed_stream_keys.py
-```
+### 🪟 Windows (Local Development)
 
-### 3. Setup FFmpeg
+Best for development and testing.
 
-Download FFmpeg dan set path di `.env`:
+1.  **Install Prerequisites**
+    - [Python 3.9+](https://www.python.org/downloads/)
+    - [FFmpeg](https://ffmpeg.org/download.html) (Add to System PATH)
+    - [Git](https://git-scm.com/downloads)
 
-```bash
-# .env
-FFMPEG_PATH=C:\ffmpeg\bin\ffmpeg.exe
-DATABASE_URL=sqlite:///./data.db
-MAX_CONCURRENT_STREAMS=10
-```
+2.  **Setup Project**
+    ```powershell
+    git clone https://github.com/DepriPramana/streamlive.git
+    cd streamlive
+    python -m venv venv
+    .\venv\Scripts\activate
+    pip install -r requirements.txt
+    ```
 
-### 4. Run Server
+3.  **Configure**
+    Copy `.env.example` to `.env` and set `FFMPEG_PATH`:
+    ```ini
+    FFMPEG_PATH=C:\ffmpeg\bin\ffmpeg.exe
+    DATABASE_URL=sqlite:///./data.db
+    ```
 
-```bash
-uvicorn app.main:app --reload
-```
+4.  **Initialize Database**
+    ```powershell
+    python migrate_stream_keys.py
+    python migrate_live_sessions.py
+    python migrate_scheduled_lives.py
+    python seed_stream_keys.py
+    ```
 
-Server berjalan di: **http://localhost:8000**
+5.  **Run Server**
+    ```powershell
+    uvicorn app.main:app --reload
+    ```
 
 ---
 

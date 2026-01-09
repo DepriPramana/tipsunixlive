@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: streamlive_web
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data.db:/app/data.db
+      - ./videos:/app/videos
+      - ./.env:/app/.env
+      - ./logs:/app/logs
+      # Mount token pickles if they exist, or the whole dir to persist them
+      - ./:/app 
+    # environment:
+    #   - DATABASE_URL=sqlite:///./data.db
+    #   - MAX_CONCURRENT_STREAMS=10
