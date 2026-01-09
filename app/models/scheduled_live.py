@@ -2,7 +2,7 @@
 Scheduled Live Session model untuk menyimpan jadwal live streaming.
 """
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone as datetime_timezone
 from app.database import Base
 
 
@@ -39,6 +39,13 @@ class ScheduledLive(Base):
     # Error tracking
     error_message = Column(String, nullable=True)
     
+    # Relationships
+    from sqlalchemy.orm import relationship
+    stream_key = relationship("StreamKey", backref="scheduled_lives")
+    video = relationship("Video", backref="scheduled_lives")
+    playlist = relationship("Playlist", backref="scheduled_lives")
+    live_session = relationship("LiveSession", backref="scheduled_lives")
+    
     def to_dict(self):
         """Convert to dictionary"""
         return {
@@ -46,7 +53,8 @@ class ScheduledLive(Base):
             'stream_key_id': self.stream_key_id,
             'video_id': self.video_id,
             'playlist_id': self.playlist_id,
-            'scheduled_time': self.scheduled_time.isoformat() if self.scheduled_time else None,
+            # Ensure output is marked as UTC so frontend converts to local time correctly
+            'scheduled_time': self.scheduled_time.replace(tzinfo=datetime_timezone.utc).isoformat() if self.scheduled_time else None,
             'mode': self.mode,
             'loop': self.loop,
             'recurrence': self.recurrence,

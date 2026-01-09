@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Scheduler - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-calendar-event"></i> Scheduler</h2>
+        <p class="text-muted">Manage scheduled live streams</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" onclick="refreshTable()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select class="form-select" id="statusFilter" onchange="refreshTable()">
+                    <option value="">All Statuses</option>
+                    <option value="pending" selected>Pending</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Stream Key</label>
+                <select class="form-select" id="keyFilter" onchange="refreshTable()">
+                    <option value="">All Stream Keys</option>
+                    {% for key in stream_keys %}
+                    <option value="{{ key.id }}">{{ key.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="scheduleTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Scheduled Time</th>
+                        <th>Stream Key</th>
+                        <th>Mode</th>
+                        <th>Content</th>
+                        <th>Recurrence</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleTableBody">
+                    <tr>
+                        <td colspan="8" class="text-center py-4">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Schedule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Key</label>
+                        <select class="form-select" id="editStreamKey" required>
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">{{ key.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Scheduled Time</label>
+                        <input type="datetime-local" class="form-control" id="editTime" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select" id="editMode" onchange="toggleEditContent()">
+                            <option value="single">Single Video</option>
+                            <option value="playlist">Playlist</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="editVideoGroup">
+                        <label class="form-label">Video</label>
+                        <select class="form-select" id="editVideo">
+                            <option value="">-- Select Video --</option>
+                            {% for video in videos %}
+                            <option value="{{ video.id }}">{{ video.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="editPlaylistGroup" style="display:none;">
+                        <label class="form-label">Playlist</label>
+                        <select class="form-select" id="editPlaylist">
+                            <option value="">-- Select Playlist --</option>
+                            {% for playlist in playlists %}
+                            <option value="{{ playlist.id }}">{{ playlist.name }} ({{ playlist.count }} videos)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Recurrence</label>
+                        <select class="form-select" id="editRecurrence">
+                            <option value="none">One-time</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Duration Limit</label>
+                        <select class="form-select" id="editDuration">
+                            <option value="0">Unlimited (24/7)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editLoop">
+                            <label class="form-check-label" for="editLoop">Loop Content</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentSchedules = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshTable();
+    });
+
+    async function refreshTable() {
+        const status = document.getElementById('statusFilter').value;
+        const keyId = document.getElementById('keyFilter').value;
+        const tbody = document.getElementById('scheduleTableBody');
+
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>';
+
+        try {
+            const params = new URLSearchParams();
+            if (status) params.append('status', status);
+            if (keyId) params.append('stream_key_id', keyId);
+
+            const response = await axios.get(`/live/schedule/list?${params.toString()}`);
+            currentSchedules = response.data;
+            renderTable(currentSchedules);
+        } catch (error) {
+            console.error('Error fetching schedules:', error);
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load schedules</td></tr>';
+        }
+    }
+
+    function renderTable(schedules) {
+        const tbody = document.getElementById('scheduleTableBody');
+
+        if (schedules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No schedules found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = schedules.map(s => {
+            const date = new Date(s.scheduled_time).toLocaleString();
+            const badgeClass = {
+                'pending': 'bg-warning text-dark',
+                'running': 'bg-success',
+                'completed': 'bg-info',
+                'failed': 'bg-danger',
+                'cancelled': 'bg-secondary'
+            }[s.status] || 'bg-secondary';
+
+            const isEditable = s.status === 'pending' || s.status === 'failed';
+
+            return `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${date}</td>
+                    <td><span class="badge bg-light text-dark border">${s.stream_key_name || 'Unknown'}</span></td>
+                    <td>${s.mode}</td>
+                    <td>${s.content_name || 'N/A'}</td>
+                    <td>${s.recurrence !== 'none' ? s.recurrence : '-'}</td>
+                    <td><span class="badge ${badgeClass}">${s.status}</span></td>
+                    <td class="text-end">
+                        ${isEditable ? `
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${s.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="cancelSchedule(${s.id})">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function toggleEditContent() {
+        const mode = document.getElementById('editMode').value;
+        document.getElementById('editVideoGroup').style.display = mode === 'single' ? 'block' : 'none';
+        document.getElementById('editPlaylistGroup').style.display = mode === 'playlist' ? 'block' : 'none';
+    }
+
+    function openEditModal(id) {
+        const schedule = currentSchedules.find(s => s.id === id);
+        if (!schedule) return;
+
+        document.getElementById('editId').value = schedule.id;
+        document.getElementById('editStreamKey').value = schedule.stream_key_id;
+
+        // Format date for datetime-local input (YYYY-MM-DDThh:mm)
+        const date = new Date(schedule.scheduled_time);
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+        document.getElementById('editTime').value = date.toISOString().slice(0, 16);
+
+        document.getElementById('editMode').value = schedule.mode;
+        document.getElementById('editLoop').checked = schedule.loop;
+        document.getElementById('editRecurrence').value = schedule.recurrence || 'none';
+        document.getElementById('editDuration').value = schedule.max_duration_hours || 0;
+
+        // Set content selection
+        if (schedule.mode === 'single') {
+            document.getElementById('editVideo').value = schedule.video_id || '';
+        } else {
+            document.getElementById('editPlaylist').value = schedule.playlist_id || '';
+        }
+
+        toggleEditContent();
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    async function saveEdit() {
+        const id = document.getElementById('editId').value;
+        const mode = document.getElementById('editMode').value;
+
+        const payload = {
+            stream_key_id: parseInt(document.getElementById('editStreamKey').value),
+            scheduled_time: new Date(document.getElementById('editTime').value).toISOString(),
+            mode: mode,
+            loop: document.getElementById('editLoop').checked,
+            recurrence: document.getElementById('editRecurrence').value,
+            max_duration_hours: parseInt(document.getElementById('editDuration').value),
+            video_id: null,
+            playlist_id: null
+        };
+
+        if (mode === 'single') {
+            const vid = document.getElementById('editVideo').value;
+            if (!vid) return showToast('Please select a video', 'danger');
+            payload.video_id = parseInt(vid);
+        } else {
+            const pid = document.getElementById('editPlaylist').value;
+            if (!pid) return showToast('Please select a playlist', 'danger');
+            payload.playlist_id = parseInt(pid);
+        }
+
+        try {
+            await axios.put(`/live/schedule/${id}`, payload);
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            showToast('Schedule updated successfully', 'success');
+            refreshTable();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to update schedule', 'danger');
+        }
+    }
+
+    async function cancelSchedule(id) {
+        if (!confirm('Are you sure you want to cancel this scheduled stream?')) return;
+
+        try {
+            await axios.delete(`/live/schedule/${id}`);
+            showToast('Schedule cancelled', 'success');
+            refreshTable();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to cancel schedule', 'danger');
+        }
+    }
+</script>
+{% endblock %}

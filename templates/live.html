@@ -602,14 +602,15 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scheduling...';
 
         try {
-            // Use /schedule/create endpoint
-            const response = await axios.post('/schedule/create', {
+            // Use /live/schedule endpoint
+            const response = await axios.post('/live/schedule', {
                 stream_key_id: parseInt(streamKeyId),
                 playlist_id: parseInt(playlistId),
                 scheduled_time: scheduledTime,
                 mode: 'playlist',
                 loop: true,
-                max_duration_hours: parseInt(duration)
+                max_duration_hours: parseInt(duration),
+                recurrence: 'none'
             });
 
             showToast('Scheduled successfully for ' + new Date(dateTime).toLocaleString(), 'success');

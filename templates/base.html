@@ -210,6 +210,9 @@
                 href="/admin/live">
                 <i class="bi bi-play-circle"></i> Live Control
             </a>
+            <a class="nav-link {% if '/scheduler' in request.url.path %}active{% endif %}" href="/admin/scheduler">
+                <i class="bi bi-calendar-event"></i> Scheduler
+            </a>
             <a class="nav-link {% if '/history' in request.url.path %}active{% endif %}" href="/admin/history">
                 <i class="bi bi-clock-history"></i> History
             </a>

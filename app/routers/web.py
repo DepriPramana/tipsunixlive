@@ -95,15 +95,21 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 @router.get("/videos", response_class=HTMLResponse)
 async def videos_page(request: Request, db: Session = Depends(get_db)):
     """Halaman video list"""
+    from app.models.stream_key import StreamKey
+    
     video_service = VideoService(db)
     videos = video_service.get_all_videos(limit=100)
     
     # Convert to dict for JSON serialization in template
     videos_dict = [v.to_dict() for v in videos]
     
+    # Get active stream keys
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    
     return templates.TemplateResponse("videos.html", {
         "request": request,
-        "videos": videos_dict
+        "videos": videos_dict,
+        "stream_keys": stream_keys
     })
 
 
@@ -126,16 +132,22 @@ async def download_page(request: Request):
 @router.get("/playlists", response_class=HTMLResponse)
 async def playlists_page(request: Request, db: Session = Depends(get_db)):
     """Halaman playlist management"""
+    from app.models.stream_key import StreamKey
+    
     playlist_service = PlaylistService(db)
     playlists = playlist_service.get_all_playlists()
     
     video_service = VideoService(db)
     videos = video_service.get_all_videos(limit=100)
     
+    # Get active stream keys
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    
     return templates.TemplateResponse("playlists.html", {
         "request": request,
         "playlists": playlists,
-        "videos": videos
+        "videos": videos,
+        "stream_keys": stream_keys
     })
 
 
@@ -188,11 +200,35 @@ async def live_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-# REMOVED: /admin/schedule - Use Scheduled Live in /admin/live instead
 # @router.get("/schedule", response_class=HTMLResponse)
 # async def schedule_page(request: Request, db: Session = Depends(get_db)):
 #     """Halaman scheduled live"""
 #     ...
+
+
+@router.get("/scheduler", response_class=HTMLResponse)
+async def scheduler_page(request: Request, db: Session = Depends(get_db)):
+    """Halaman scheduler management"""
+    from app.models.stream_key import StreamKey
+    
+    # Get active stream keys
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    
+    # Get videos for edit modal
+    video_service = VideoService(db)
+    videos = video_service.get_all_videos(limit=200)
+    videos_dict = [v.to_dict() for v in videos]
+    
+    # Get playlists for edit modal
+    playlist_service = PlaylistService(db)
+    playlists = playlist_service.get_all_playlists()
+    
+    return templates.TemplateResponse("scheduler.html", {
+        "request": request,
+        "stream_keys": stream_keys,
+        "videos": videos_dict,
+        "playlists": playlists
+    })
 
 
 @router.get("/history", response_class=HTMLResponse)

@@ -142,7 +142,8 @@
                         </td>
                         <td class="text-end table-actions">
                             <button class="btn btn-sm btn-success"
-                                onclick="liveVideo({{ video.id }}, '{{ video.name }}')" title="Stream this video">
+                                onclick="openBroadcastModal({{ video.id }}, '{{ video.name | replace("'", "\\'") }}')"
+                                title="Broadcast this video">
                                 <i class="bi bi-broadcast"></i> Live
                             </button>
                             <button class="btn btn-sm btn-info" onclick="viewDetails({{ video.id }})"
@@ -191,93 +192,280 @@
     </div>
 </div>
 
-{% endblock %}
+<!-- Broadcast Video Modal -->
+<div class="modal fade" id="broadcastModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-broadcast"></i> Broadcast Video</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="broadcastVideoId">
+                <div class="mb-3">
+                    <label class="form-label">Video</label>
+                    <input type="text" class="form-control" id="broadcastVideoName" readonly>
+                </div>
 
-{% block extra_js %}
-<script>
-    // Calculate statistics
-    document.addEventListener('DOMContentLoaded', () => {
-        const videos = {{ videos| tojson
-    }};
+                <ul class="nav nav-tabs mb-3" id="broadcastTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="start-now-tab" data-bs-toggle="tab"
+                            data-bs-target="#start-now" type="button" role="tab">Start Now</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="schedule-tab" data-bs-toggle="tab" data-bs-target="#schedule"
+                            type="button" role="tab">Schedule</button>
+                    </li>
+                </ul>
 
-    // Total duration
-    let totalSeconds = 0;
-    videos.forEach(v => {
-        if (v.duration_seconds) {
-            totalSeconds += v.duration_seconds;
-        }
-    });
-    document.getElementById('totalDuration').textContent = formatDuration(totalSeconds);
+                <div class="tab-content" id="broadcastTabContent">
+                    <!-- Start Now Tab -->
+                    <div class="tab-pane fade show active" id="start-now" role="tabpanel">
+                        <form id="startNowForm">
+                            <div class="mb-3">
+                                <label class="form-label">Select Stream Key</label>
+                                <select class="form-select" id="nowStreamKey" required>
+                                    <option value="">-- Select Stream Key --</option>
+                                    {% if stream_keys %}
+                                    {% for key in stream_keys %}
+                                    <option value="{{ key.id }}">{{ key.name }}</option>
+                                    {% endfor %}
+                                    {% else %}
+                                    <option value="" disabled>No stream keys available</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Duration</label>
+                                <select class="form-select" id="nowDuration">
+                                    <option value="0">24/7 (Unlimited)</option>
+                                    <option value="1">1 Hour</option>
+                                    <option value="3">3 Hours</option>
+                                    <option value="6">6 Hours</option>
+                                    <option value="12">12 Hours</option>
+                                    <option value="24">24 Hours</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="nowLoop" checked>
+                                    <label class="form-check-label" for="nowLoop">Loop Video</label>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-success w-100" onclick="startBroadcastNow()">
+                                <i class="bi bi-play-circle"></i> Start Streaming
+                            </button>
+                        </form>
+                    </div>
 
-    // Total size
-    let totalBytes = 0;
-    videos.forEach(v => {
-        if (v.file_size) {
-            totalBytes += v.file_size;
-        }
-    });
-    const totalGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
-    document.getElementById('totalSize').textContent = totalGB + ' GB';
+                    <!-- Schedule Tab -->
+                    <div class="tab-pane fade" id="schedule" role="tabpanel">
+                        <form id="scheduleForm">
+                            <div class="mb-3">
+                                <label class="form-label">Select Stream Key</label>
+                                <select class="form-select" id="schedStreamKey" required>
+                                    <option value="">-- Select Stream Key --</option>
+                                    {% if stream_keys %}
+                                    {% for key in stream_keys %}
+                                    <option value="{{ key.id }}">{{ key.name }}</option>
+                                    {% endfor %}
+                                    {% else %}
+                                    <option value="" disabled>No stream keys available</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Start Time</label>
+                                <input type="datetime-local" class="form-control" id="schedTime" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Recurrence</label>
+                                <select class="form-select" id="schedRecurrence">
+                                    <option value="none">One-time</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Duration</label>
+                                <select class="form-select" id="schedDuration">
+                                    <option value="0">24/7 (Unlimited)</option>
+                                    <option value="1">1 Hour</option>
+                                    <option value="3">3 Hours</option>
+                                    <option value="6">6 Hours</option>
+                                    <option value="12">12 Hours</option>
+                                    <option value="24">24 Hours</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="schedLoop" checked>
+                                    <label class="form-check-label" for="schedLoop">Loop Video</label>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-warning w-100" onclick="scheduleBroadcast()">
+                                <i class="bi bi-calendar-check"></i> Schedule Broadcast
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    // Average resolution
-    const resolutions = videos.filter(v => v.width && v.height);
-    if (resolutions.length > 0) {
-        const avgWidth = Math.round(resolutions.reduce((sum, v) => sum + v.width, 0) / resolutions.length);
-        const avgHeight = Math.round(resolutions.reduce((sum, v) => sum + v.height, 0) / resolutions.length);
-        document.getElementById('avgResolution').textContent = `${avgWidth}x${avgHeight}`;
-    }
-    });
+    {% endblock %}
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', filterVideos);
-    document.getElementById('sourceFilter').addEventListener('change', filterVideos);
-
-    function filterVideos() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const sourceFilter = document.getElementById('sourceFilter').value;
-        const rows = document.querySelectorAll('#videosTable tbody tr[data-video-id]');
-
-        rows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const source = row.getAttribute('data-source');
-
-            const matchesSearch = name.includes(searchTerm);
-            const matchesSource = !sourceFilter || source === sourceFilter;
-
-            row.style.display = (matchesSearch && matchesSource) ? '' : 'none';
-        });
-    }
-
-    // Live video (single video stream)
-    async function liveVideo(videoId, videoName) {
-        if (!confirm(`Start live streaming for "${videoName}"?`)) return;
-
-        try {
-            // For now, we'll show a message
-            // In future, implement single video streaming
-            showToast('Single video streaming will be implemented soon. Please use playlists for now.', 'info');
-
-            // Alternative: redirect to create playlist with this video
-            // window.location.href = `/admin/playlists?video=${videoId}`;
-        } catch (error) {
-            showToast('Failed to start stream', 'danger');
-        }
-    }
-
-    // View video details
-    async function viewDetails(videoId) {
-        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
-        modal.show();
-
-        try {
-            // In future, create API endpoint for video details
-            // For now, get from table
+    {% block extra_js %}
+    <script>
+        // Calculate statistics
+        document.addEventListener('DOMContentLoaded', () => {
             const videos = {{ videos| tojson
         }};
-    const video = videos.find(v => v.id === videoId);
 
-    if (video) {
-        document.getElementById('detailsContent').innerHTML = `
+        // Total duration
+        let totalSeconds = 0;
+        videos.forEach(v => {
+            if (v.duration_seconds) {
+                totalSeconds += v.duration_seconds;
+            }
+        });
+        document.getElementById('totalDuration').textContent = formatDuration(totalSeconds);
+
+        // Total size
+        let totalBytes = 0;
+        videos.forEach(v => {
+            if (v.file_size) {
+                totalBytes += v.file_size;
+            }
+        });
+        const totalGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
+        document.getElementById('totalSize').textContent = totalGB + ' GB';
+
+        // Average resolution
+        const resolutions = videos.filter(v => v.width && v.height);
+        if (resolutions.length > 0) {
+            const avgWidth = Math.round(resolutions.reduce((sum, v) => sum + v.width, 0) / resolutions.length);
+            const avgHeight = Math.round(resolutions.reduce((sum, v) => sum + v.height, 0) / resolutions.length);
+            document.getElementById('avgResolution').textContent = `${avgWidth}x${avgHeight}`;
+        }
+    });
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', filterVideos);
+        document.getElementById('sourceFilter').addEventListener('change', filterVideos);
+
+        function filterVideos() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const sourceFilter = document.getElementById('sourceFilter').value;
+            const rows = document.querySelectorAll('#videosTable tbody tr[data-video-id]');
+
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const source = row.getAttribute('data-source');
+
+                const matchesSearch = name.includes(searchTerm);
+                const matchesSource = !sourceFilter || source === sourceFilter;
+
+                row.style.display = (matchesSearch && matchesSource) ? '' : 'none';
+            });
+        }
+
+        // Open Broadcast Modal
+        function openBroadcastModal(videoId, videoName) {
+            document.getElementById('broadcastVideoId').value = videoId;
+            document.getElementById('broadcastVideoName').value = videoName;
+
+            // Set min datetime for schedule
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('schedTime').min = now.toISOString().slice(0, 16);
+
+            new bootstrap.Modal(document.getElementById('broadcastModal')).show();
+        }
+
+        // Start Now
+        async function startBroadcastNow() {
+            const videoId = document.getElementById('broadcastVideoId').value;
+            const streamKeyId = document.getElementById('nowStreamKey').value;
+            const duration = document.getElementById('nowDuration').value;
+            const loop = document.getElementById('nowLoop').checked;
+
+            if (!streamKeyId) {
+                showToast('Please select a stream key', 'danger');
+                return;
+            }
+
+            try {
+                await axios.post('/live/manual', {
+                    stream_key_id: parseInt(streamKeyId),
+                    video_id: parseInt(videoId),
+                    mode: 'single',
+                    loop: loop,
+                    max_duration_hours: parseInt(duration)
+                });
+
+                bootstrap.Modal.getInstance(document.getElementById('broadcastModal')).hide();
+                showToast('Stream started successfully!', 'success');
+                setTimeout(() => window.location.href = '/admin/live', 1000);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
+            }
+        }
+
+        // Schedule Broadcast
+        async function scheduleBroadcast() {
+            const videoId = document.getElementById('broadcastVideoId').value;
+            const streamKeyId = document.getElementById('schedStreamKey').value;
+            const startTime = document.getElementById('schedTime').value;
+            const recurrence = document.getElementById('schedRecurrence').value;
+            const duration = document.getElementById('schedDuration').value;
+            const loop = document.getElementById('schedLoop').checked;
+
+            if (!streamKeyId || !startTime) {
+                showToast('Please fill all required fields', 'danger');
+                return;
+            }
+
+            // Validate future time
+            if (new Date(startTime) <= new Date()) {
+                showToast('Scheduled time must be in the future', 'danger');
+                return;
+            }
+
+            try {
+                await axios.post('/live/schedule', {
+                    stream_key_id: parseInt(streamKeyId),
+                    video_id: parseInt(videoId),
+                    scheduled_time: new Date(startTime).toISOString(),
+                    mode: 'single',
+                    loop: loop,
+                    recurrence: recurrence,
+                    max_duration_hours: parseInt(duration)
+                });
+
+                bootstrap.Modal.getInstance(document.getElementById('broadcastModal')).hide();
+                showToast('Broadcast scheduled successfully!', 'success');
+                // Redirect to calendar or stay
+                setTimeout(() => window.location.href = '/admin/calendar', 1000);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to schedule', 'danger');
+            }
+        }
+
+        // View video details
+        async function viewDetails(videoId) {
+            const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+            modal.show();
+
+            try {
+                // In future, create API endpoint for video details
+                // For now, get from table
+                const videos = {{ videos| tojson
+            }};
+        const video = videos.find(v => v.id === videoId);
+
+        if (video) {
+            document.getElementById('detailsContent').innerHTML = `
                     <div class="row">
                         <div class="col-md-6">
                             <h6>Basic Info</h6>
@@ -309,29 +497,29 @@
                         </div>
                     </div>
                 `;
-    }
+        }
         } catch (error) {
-        document.getElementById('detailsContent').innerHTML = `
+            document.getElementById('detailsContent').innerHTML = `
                 <div class="alert alert-danger">Failed to load details</div>
             `;
-    }
-    }
-
-    // Delete video
-    async function deleteVideo(videoId, videoName) {
-        if (!confirm(`Are you sure you want to delete "${videoName}"?\n\nThis action cannot be undone.`)) return;
-
-        try {
-            // In future, create DELETE endpoint
-            showToast('Delete functionality will be implemented soon', 'info');
-
-            // Example implementation:
-            // await axios.delete(`/videos/${videoId}`);
-            // showToast('Video deleted successfully', 'success');
-            // setTimeout(() => location.reload(), 1000);
-        } catch (error) {
-            showToast('Failed to delete video', 'danger');
         }
     }
-</script>
-{% endblock %}
+
+        // Delete video
+        async function deleteVideo(videoId, videoName) {
+            if (!confirm(`Are you sure you want to delete "${videoName}"?\n\nThis action cannot be undone.`)) return;
+
+            try {
+                // In future, create DELETE endpoint
+                showToast('Delete functionality will be implemented soon', 'info');
+
+                // Example implementation:
+                // await axios.delete(`/videos/${videoId}`);
+                // showToast('Video deleted successfully', 'success');
+                // setTimeout(() => location.reload(), 1000);
+            } catch (error) {
+                showToast('Failed to delete video', 'danger');
+            }
+        }
+    </script>
+    {% endblock %}

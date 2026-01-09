@@ -3,7 +3,7 @@ Live Streaming Scheduler Service menggunakan APScheduler.
 Mendukung multiple concurrent scheduled jobs.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone as datetime_timezone
 from typing import Optional, Dict, List
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
@@ -30,6 +30,93 @@ class LiveSchedulerService:
         self.scheduler.start()
         logger.info("Live Scheduler started")
     
+    def update_scheduled_live(
+        self,
+        db: Session,
+        scheduled_live_id: int,
+        stream_key_id: int,
+        scheduled_time: datetime,
+        video_id: Optional[int] = None,
+        playlist_id: Optional[int] = None,
+        mode: str = 'playlist',
+        loop: bool = True,
+        recurrence: str = 'none',
+        max_duration_hours: int = 0
+    ) -> ScheduledLive:
+        """
+        Update scheduled live.
+        
+        Args:
+            db: Database session
+            scheduled_live_id: ID to update
+            ... (other args same as schedule_live)
+            
+        Returns:
+            Updated ScheduledLive object
+        """
+        
+        scheduled_live = db.query(ScheduledLive).filter(
+            ScheduledLive.id == scheduled_live_id
+        ).first()
+        
+        if not scheduled_live:
+            raise ValueError(f"Scheduled live {scheduled_live_id} not found")
+            
+        if scheduled_live.status not in ['pending', 'failed']:
+            raise ValueError(f"Cannot update scheduled live with status {scheduled_live.status}")
+            
+        # Validate stream key
+        stream_key = db.query(StreamKey).filter(
+            StreamKey.id == stream_key_id
+        ).first()
+        
+        if not stream_key:
+            raise ValueError(f"Stream key {stream_key_id} not found")
+            
+        if not stream_key.is_active:
+            raise ValueError(f"Stream key '{stream_key.name}' is not active")
+            
+        # Validate video/playlist
+        if mode == 'single' and not video_id:
+            raise ValueError("video_id required for single mode")
+        
+        if mode == 'playlist' and not playlist_id:
+            raise ValueError("playlist_id required for playlist mode")
+            
+        # Update record
+        scheduled_live.stream_key_id = stream_key_id
+        scheduled_live.video_id = video_id
+        scheduled_live.playlist_id = playlist_id
+        scheduled_live.scheduled_time = scheduled_time
+        scheduled_live.mode = mode
+        scheduled_live.loop = loop
+        scheduled_live.recurrence = recurrence
+        scheduled_live.max_duration_hours = max_duration_hours
+        
+        db.commit()
+        db.refresh(scheduled_live)
+        
+        # Update scheduler job
+        if scheduled_live.job_id:
+            try:
+                self.scheduler.reschedule_job(
+                    scheduled_live.job_id,
+                    trigger=DateTrigger(run_date=scheduled_time.replace(tzinfo=datetime_timezone.utc))
+                )
+                logger.info(f"Rescheduled job {scheduled_live.job_id} to {scheduled_time}")
+            except Exception as e:
+                logger.warning(f"Error rescheduling job: {e}")
+                # Try adding if rescheduling fails (e.g. job missing)
+                self.scheduler.add_job(
+                    func=self._execute_scheduled_live,
+                    trigger=DateTrigger(run_date=scheduled_time.replace(tzinfo=datetime_timezone.utc)),
+                    id=scheduled_live.job_id,
+                    args=[scheduled_live.id],
+                    replace_existing=True
+                )
+        
+        return scheduled_live
+
     def schedule_live(
         self,
         db: Session,
@@ -101,7 +188,7 @@ class LiveSchedulerService:
         # Schedule job with APScheduler
         self.scheduler.add_job(
             func=self._execute_scheduled_live,
-            trigger=DateTrigger(run_date=scheduled_time),
+            trigger=DateTrigger(run_date=scheduled_time.replace(tzinfo=datetime_timezone.utc)),
             id=job_id,
             args=[scheduled_live.id],
             replace_existing=True

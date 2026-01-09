@@ -88,21 +88,36 @@
             },
             events: async function (info, successCallback, failureCallback) {
                 try {
-                    // We'll use the existing history/schedule list and convert to FC events
-                    // For now, let's fetch from history/status of scheduled jobs
-                    const response = await axios.get('/history'); // Need a JSON endpoint for this
-                    // For demo/simplicity, we'll fetch from the active/pending schedules
-                    // In a real app, we'd create a specific /api/calendar-events endpoint
-                } catch (e) { }
+                    const response = await axios.get('/live/schedule/list');
+                    const events = response.data.map(item => {
+                        let className = 'status-pending';
+                        if (item.status === 'running') className = 'status-running';
+                        if (item.status === 'completed') className = 'status-completed';
+                        if (item.status === 'failed') className = 'status-failed';
+                        if (item.status === 'cancelled') className = 'status-failed';
 
-                // Static events for now as a fallback/test
-                successCallback([
-                    {
-                        title: 'Daily Stream (Recurring)',
-                        start: '2026-01-07T14:00:00',
-                        className: 'status-pending'
-                    }
-                ]);
+                        // Create title
+                        let title = item.stream_key_name || 'Stream';
+                        if (item.content_name) title += `: ${item.content_name}`;
+
+                        // Add recurrence info
+                        if (item.recurrence && item.recurrence !== 'none') {
+                            title += ` (${item.recurrence})`;
+                        }
+
+                        return {
+                            id: item.id,
+                            title: title,
+                            start: item.scheduled_time,
+                            className: className,
+                            extendedProps: item // Keep full data
+                        };
+                    });
+                    successCallback(events);
+                } catch (e) {
+                    console.error('Error fetching calendar events:', e);
+                    failureCallback(e);
+                }
             },
             eventClick: function (info) {
                 const modal = new bootstrap.Modal(document.getElementById('eventModal'));

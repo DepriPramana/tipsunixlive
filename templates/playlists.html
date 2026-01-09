@@ -36,7 +36,8 @@
                 </p>
 
                 <div class="d-grid gap-2">
-                    <button class="btn btn-sm btn-success" onclick="startPlaylist('{{ playlist.id }}')">
+                    <button class="btn btn-sm btn-success"
+                        onclick="openStartModal('{{ playlist.id }}', '{{ playlist.name }}')">
                         <i class="bi bi-broadcast"></i> Start Live
                     </button>
                     <button class="btn btn-sm btn-info" onclick="viewPlaylist('{{ playlist.id }}')">
@@ -120,6 +121,72 @@
         </div>
     </div>
 </div>
+
+<!-- Start Live Playlist Modal -->
+<div class="modal fade" id="startLiveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start Live Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startLiveForm">
+                    <input type="hidden" id="startPlaylistId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Playlist</label>
+                        <input type="text" class="form-control" id="startPlaylistName" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Stream Key</label>
+                        <select class="form-select" id="startStreamKey" required>
+                            <option value="">-- Select Stream Key --</option>
+                            {% if stream_keys %}
+                            {% for key in stream_keys %}
+                            <option value="{{ key.id }}">{{ key.name }}</option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="" disabled>No stream keys available</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            Select which YouTube stream key to use.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="startDuration">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="startLoop" checked>
+                            <label class="form-check-label" for="startLoop">
+                                Loop Playlist (Repeat 24/7)
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="confirmStartPlaylist()">
+                    <i class="bi bi-broadcast"></i> Start Live
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -157,17 +224,41 @@
         }
     }
 
-    // Start playlist
-    async function startPlaylist(playlistId) {
-        if (!confirm('Start live streaming with this playlist?')) return;
+    // Open Start Modal
+    function openStartModal(playlistId, playlistName) {
+        document.getElementById('startPlaylistId').value = playlistId;
+        document.getElementById('startPlaylistName').value = playlistName;
+
+        // Show modal
+        new bootstrap.Modal(document.getElementById('startLiveModal')).show();
+    }
+
+    // Confirm Start Playlist
+    async function confirmStartPlaylist() {
+        const playlistId = document.getElementById('startPlaylistId').value;
+        const streamKeyId = document.getElementById('startStreamKey').value;
+        const duration = document.getElementById('startDuration').value;
+        const loop = document.getElementById('startLoop').checked;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
 
         try {
-            await axios.post('/live/start', {
+            // Updated to use /live/manual endpoint
+            await axios.post('/live/manual', {
+                stream_key_id: parseInt(streamKeyId),
                 playlist_id: parseInt(playlistId),
-                loop: true
+                mode: 'playlist',
+                loop: loop,
+                max_duration_hours: parseInt(duration)
             });
 
-            showToast('Stream started!', 'success');
+            // Hide modal
+            bootstrap.Modal.getInstance(document.getElementById('startLiveModal')).hide();
+
+            showToast('Stream started successfully!', 'success');
             setTimeout(() => window.location.href = '/admin/live', 1000);
         } catch (error) {
             showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
