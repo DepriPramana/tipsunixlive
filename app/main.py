@@ -43,11 +43,18 @@ app.include_router(websocket.router)  # WebSocket monitoring (usually handles au
 
 # Optional: YouTube API
 try:
-    from app.routers import youtube_api, youtube_web
+    from app.routers import youtube_api, youtube_web, media
     app.include_router(youtube_api.router, dependencies=protected_dependency)  # YouTube API endpoints
     app.include_router(youtube_web.router, dependencies=protected_dependency)  # YouTube web pages
+    app.include_router(media.router, dependencies=protected_dependency)  # Media Library
 except ImportError:
     pass
+
+# Mount static files for thumbnails
+from fastapi.staticfiles import StaticFiles
+import os
+os.makedirs("videos", exist_ok=True)
+app.mount("/videos", StaticFiles(directory="videos"), name="videos")
 
 def cleanup_zombie_sessions():
     """Mark all 'running' sessions as 'interrupted' on startup"""

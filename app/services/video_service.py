@@ -2,10 +2,12 @@
 Service untuk mengelola video dan metadata.
 """
 import logging
+import os
 from typing import Optional, Dict, List
 from sqlalchemy.orm import Session
 from app.models.video import Video
 from app.utils.video_metadata import get_video_metadata
+from app.services.media_service import media_service
 
 # Setup logging
 logging.basicConfig(
@@ -44,6 +46,9 @@ class VideoService:
         if not metadata:
             logger.error("Gagal extract metadata")
             return None
+            
+        # Generate thumbnail
+        thumbnail_path = media_service.generate_thumbnail(video_path)
         
         try:
             # Create Video object
@@ -51,6 +56,7 @@ class VideoService:
                 name=metadata['file_name'],
                 path=metadata['file_path'],
                 source=source,
+                thumbnail_path=thumbnail_path,
                 
                 # Duration
                 duration=metadata['duration_formatted'],
@@ -160,6 +166,23 @@ class VideoService:
             return False
         
         try:
+            # Delete physical file if needed (optional, maybe keep user files?)
+            # For now, let's delete thumbnail
+            if video.thumbnail_path and os.path.exists(video.thumbnail_path):
+                os.remove(video.thumbnail_path)
+                
+            # If source is downloaded/gdrive, maybe delete the video file too?
+            # To be safe, we only delete database record + thumbnail for now
+            # unless user explicitly asks to delete file. 
+            # (Wait, user requirement said "delete the video file and database record")
+            
+            if os.path.exists(video.path):
+                try:
+                    os.remove(video.path)
+                    logger.info(f"Deleted video file: {video.path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete video file: {e}")
+
             self.db.delete(video)
             self.db.commit()
             logger.info(f"✅ Video {video_id} deleted")

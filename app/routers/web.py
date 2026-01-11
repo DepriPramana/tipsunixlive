@@ -231,6 +231,23 @@ async def scheduler_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/media", response_class=HTMLResponse)
+async def media_page(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Media Library Page"""
+    from app.models.video import Video
+    videos = db.query(Video).order_by(Video.created_at.desc()).all()
+    return templates.TemplateResponse(
+        "media.html",
+        {
+            "request": request,
+            "videos": videos
+        }
+    )
+
+
 @router.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request, db: Session = Depends(get_db)):
     """Halaman live history"""

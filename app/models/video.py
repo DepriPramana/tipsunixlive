@@ -36,6 +36,7 @@ class Video(Base):
     name = Column(String, nullable=False)
     path = Column(String, nullable=False, unique=True)
     source = Column(String, default="uploaded")  # uploaded, downloaded, gdrive
+    thumbnail_path = Column(String, nullable=True)
     
     # Duration
     duration = Column(String)  # Format: HH:MM:SS
@@ -69,6 +70,7 @@ class Video(Base):
             "name": self.name,
             "path": self.path,
             "source": self.source,
+            "thumbnail_path": self.thumbnail_path,
             "duration": self.duration,
             "duration_seconds": self.duration_seconds,
             "resolution": self.resolution,
