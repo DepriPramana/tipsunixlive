@@ -1,6 +1,13 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
+from app.database import SessionLocal
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 from app.services.media_service import media_service
 from app.services.video_service import VideoService
 from pydantic import BaseModel

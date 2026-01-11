@@ -26,7 +26,8 @@
                 {% if video.thumbnail_path %}
                 <img src="/{{ video.thumbnail_path }}" class="card-img-top video-thumbnail" alt="{{ video.name }}">
                 {% else %}
-                <div class="card-img-top bg-dark d-flex align-items-center justify-content-center" style="height: 160px;">
+                <div class="card-img-top bg-dark d-flex align-items-center justify-content-center"
+                    style="height: 160px;">
                     <i class="bi bi-film text-secondary fs-1"></i>
                 </div>
                 {% endif %}
@@ -39,9 +40,9 @@
                     <small class="text-muted">{{ (video.file_size / 1024 / 1024)|round(1) }} MB</small>
                 </div>
                 <!-- Technical Details -->
-                 <div class="mt-2 text-muted small">
-                    <i class="bi bi-upc-scan"></i> {{ video.bitrate // 1000 }} kbps 
-                    <span class="mx-1">|</span> 
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-upc-scan"></i> {{ video.bitrate // 1000 }} kbps
+                    <span class="mx-1">|</span>
                     <i class="bi bi-filetype-{{ video.format }}"></i> {{ video.codec }}
                 </div>
             </div>
@@ -66,7 +67,8 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">Google Drive Share Link</label>
-                    <input type="text" class="form-control" id="gdriveUrl" placeholder="https://drive.google.com/file/d/...">
+                    <input type="text" class="form-control" id="gdriveUrl"
+                        placeholder="https://drive.google.com/file/d/...">
                     <div class="form-text">Make sure the link is accessible (Public or 'Anyone with the link').</div>
                 </div>
             </div>
@@ -80,74 +82,75 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
-async function deleteVideo(id) {
-    if (!confirm('Are you sure you want to delete this video? This cannot be undone.')) return;
+    async function deleteVideo(id) {
+        if (!confirm('Are you sure you want to delete this video? This cannot be undone.')) return;
 
-    try {
-        await axios.delete(`/media/${id}`);
-        location.reload();
-    } catch (err) {
-        alert('Failed to delete video: ' + (err.response?.data?.detail || err.message));
+        try {
+            await axios.delete(`/media/${id}`);
+            location.reload();
+        } catch (err) {
+            alert('Failed to delete video: ' + (err.response?.data?.detail || err.message));
+        }
     }
-}
 
-async function startDownload() {
-    const url = document.getElementById('gdriveUrl').value;
-    if (!url) return alert('Please enter a URL');
+    async function startDownload() {
+        const url = document.getElementById('gdriveUrl').value;
+        if (!url) return alert('Please enter a URL');
 
-    try {
-        const btn = document.querySelector('#gdriveModal .btn-primary');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = 'Queuing...';
+        try {
+            const btn = document.querySelector('#gdriveModal .btn-primary');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'Queuing...';
 
-        await axios.post('/media/gdrive/download', { url });
-        
-        alert('Download started in background! The video will appear here once finished (refresh page).');
-        bootstrap.Modal.getInstance(document.getElementById('gdriveModal')).hide();
-        document.getElementById('gdriveUrl').value = '';
-        
-        btn.disabled = false;
-        btn.innerText = originalText;
-    } catch (err) {
-        alert('Failed to start download: ' + (err.response?.data?.detail || err.message));
-        
-        // Re-enable button
-        const btn = document.querySelector('#gdriveModal .btn-primary');
-        btn.disabled = false;
-        btn.innerText = 'Start Download';
+            await axios.post('/media/gdrive/download', { url });
+
+            alert('Download started in background! The video will appear here once finished (refresh page).');
+            bootstrap.Modal.getInstance(document.getElementById('gdriveModal')).hide();
+            document.getElementById('gdriveUrl').value = '';
+
+            btn.disabled = false;
+            btn.innerText = originalText;
+        } catch (err) {
+            alert('Failed to start download: ' + (err.response?.data?.detail || err.message));
+
+            // Re-enable button
+            const btn = document.querySelector('#gdriveModal .btn-primary');
+            btn.disabled = false;
+            btn.innerText = 'Start Download';
+        }
     }
-}
 
-async function syncFiles() {
-    try {
-        const btn = document.querySelector('button[onclick="syncFiles()"]');
-        const originalIcon = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+    async function syncFiles() {
+        try {
+            const btn = document.querySelector('button[onclick="syncFiles()"]');
+            const originalIcon = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
 
-        const res = await axios.post('/media/sync');
-        
-        alert(`Sync complete! Added ${res.data.added} new videos.`);
-        location.reload();
-    } catch (err) {
-        alert('Sync failed: ' + err.message);
-        btn.disabled = false;
-        btn.innerHTML = originalIcon;
+            const res = await axios.post('/media/sync');
+
+            alert(`Sync complete! Added ${res.data.added} new videos.`);
+            location.reload();
+        } catch (err) {
+            alert('Sync failed: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = originalIcon;
+        }
     }
-}
 </script>
 
 <style>
-.video-thumbnail {
-    height: 160px;
-    object-fit: cover;
-}
-.video-card:hover {
-    transform: translateY(-5px);
-    transition: transform 0.2s;
-}
+    .video-thumbnail {
+        height: 160px;
+        object-fit: cover;
+    }
+
+    .video-card:hover {
+        transform: translateY(-5px);
+        transition: transform 0.2s;
+    }
 </style>
 {% endblock %}

@@ -6,6 +6,7 @@ from app.models.stream_key import StreamKey
 from app.models.live_session import LiveSession
 from app.models.scheduled_live import ScheduledLive
 from app.models.youtube_broadcast import YouTubeBroadcast
+from app.models.setting import SystemSetting
 
 __all__ = [
     "Video", 
@@ -15,5 +16,6 @@ __all__ = [
     "StreamKey", 
     "LiveSession", 
     "ScheduledLive", 
-    "YouTubeBroadcast"
+    "YouTubeBroadcast",
+    "SystemSetting"
 ]

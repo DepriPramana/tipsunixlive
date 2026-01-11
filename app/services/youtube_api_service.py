@@ -8,6 +8,11 @@ import logging
 from typing import Optional, Dict, Tuple, List
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
+
+from app.database import SessionLocal
+from app.models.setting import SystemSetting
+from app.utils.crypto import decrypt_value
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -69,21 +74,42 @@ class YouTubeAPIService:
                     self.credentials = None
             
             if not self.credentials:
-                # Check for both plural and singular filenames
-                creds_file = CREDENTIALS_FILE
-                if not os.path.exists(creds_file) and os.path.exists('client_secret.json'):
-                    creds_file = 'client_secret.json'
+                flow = None
                 
-                if not os.path.exists(creds_file):
-                    logger.error(f"❌ {CREDENTIALS_FILE} not found!")
-                    logger.error("Please download OAuth2 credentials from Google Cloud Console")
+                # 1. Try Database
+                db = SessionLocal()
+                try:
+                    setting = db.query(SystemSetting).filter(SystemSetting.key == "google_client_secret").first()
+                    if setting and setting.value:
+                        try:
+                            # DECRYPT HERE
+                            decrypted_value = decrypt_value(setting.value)
+                            
+                            config = json.loads(decrypted_value)
+                            logger.info("🔐 Found credentials in Database configuration")
+                            flow = InstalledAppFlow.from_client_config(config, SCOPES)
+                        except Exception as e:
+                            logger.error(f"❌ Failed to parse DB credentials: {e}")
+                finally:
+                    db.close()
+                
+                # 2. Key File Fallback
+                if not flow:
+                    creds_file = CREDENTIALS_FILE
+                    if not os.path.exists(creds_file) and os.path.exists('client_secret.json'):
+                        creds_file = 'client_secret.json'
+                    
+                    if os.path.exists(creds_file):
+                        logger.info(f"📁 Starting OAuth2 flow using file {creds_file}...")
+                        flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
+                
+                if not flow:
+                    logger.error(f"❌ No credentials found in Database or File ({CREDENTIALS_FILE})!")
+                    logger.error("Please configure via Settings page or download OAuth2 credentials from Google Cloud Console")
                     return False
-                
-                logger.info(f"Starting OAuth2 flow using {creds_file}...")
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    creds_file, SCOPES
-                )
-                self.credentials = flow.run_local_server(port=8080)
+
+                logger.warning("Authentication required. Please allow the request on the provided URL. If running mostly headless, verify port 8080 tunneling.")
+                self.credentials = flow.run_local_server(port=8080, open_browser=False)
             
             # Save credentials
             with open(token_filename, 'wb') as token:
@@ -97,6 +123,58 @@ class YouTubeAPIService:
             return True
         except Exception as e:
             logger.error(f"❌ Failed to build YouTube service: {e}")
+            return False
+
+    def get_auth_url(self, redirect_uri: str) -> Tuple[str, object]:
+        """
+        Generate authorization URL for web-based OAuth2 flow.
+        
+        Args:
+            redirect_uri: URI to redirect back to after auth
+            
+        Returns:
+            Tuple of (authorization_url, flow_object)
+        """
+        creds_file = CREDENTIALS_FILE
+        if not os.path.exists(creds_file) and os.path.exists('client_secret.json'):
+            creds_file = 'client_secret.json'
+            
+        if not os.path.exists(creds_file):
+            logger.error(f"❌ {CREDENTIALS_FILE} not found!")
+            raise FileNotFoundError(f"{CREDENTIALS_FILE} not found")
+            
+        flow = InstalledAppFlow.from_client_secrets_file(
+            creds_file, SCOPES, redirect_uri=redirect_uri
+        )
+        
+        auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+        return auth_url, flow
+
+    def fetch_token_from_code(self, flow, code: str, token_filename: str = DEFAULT_TOKEN_FILE) -> bool:
+        """
+        Exchange authorization code for credentials and save them.
+        
+        Args:
+            flow: The flow object created in get_auth_url
+            code: Authorization code from callback
+            token_filename: Where to save the token
+            
+        Returns:
+            True if successful
+        """
+        try:
+            flow.fetch_token(code=code)
+            self.credentials = flow.credentials
+            
+            # Save credentials
+            with open(token_filename, 'wb') as token:
+                pickle.dump(self.credentials, token)
+            
+            self.youtube = build('youtube', 'v3', credentials=self.credentials)
+            logger.info(f"✅ Credentials saved to {token_filename}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch token: {e}")
             return False
             
     def get_channel_info(self) -> Optional[Dict]:
@@ -179,45 +257,65 @@ class YouTubeAPIService:
         start_time_iso = scheduled_start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         
         try:
-            broadcast_request = self.youtube.liveBroadcasts().insert(
-                part="snippet,status,contentDetails",
-                body={
-                    "snippet": {
-                        "title": title,
-                        "description": description,
-                        "scheduledStartTime": start_time_iso,
-                        "categoryId": category_id,
-                        # Attempt to set video metadata on broadcast creation
-                        "tags": [t.strip() for t in tags.split(',')] if tags else [],
-                        "defaultLanguage": language,
-                        "defaultAudioLanguage": language
-                    },
-                    "status": {
-                        "privacyStatus": privacy_status,
-                        "selfDeclaredMadeForKids": made_for_kids,
-                        "license": license
-                    },
-                    "contentDetails": {
-                        "enableAutoStart": auto_start,
-                        "enableAutoStop": auto_stop,
-                        "enableDvr": enable_dvr,
-                        "enableContentEncryption": False,
-                        "enableEmbed": enable_embed,
-                        "recordFromStart": True,
-                        "startWithSlate": False,
-                        "enableLiveChat": enable_chat,
-                        "monitorStream": {
-                            "enableMonitorStream": True,
-                            "broadcastStreamDelayMs": 0
-                        }
+            broadcast_body = {
+                "snippet": {
+                    "title": title,
+                    "description": description,
+                    "scheduledStartTime": start_time_iso,
+                    "categoryId": category_id,
+                    "tags": [t.strip() for t in tags.split(',')] if tags else [],
+                    "defaultLanguage": language,
+                    "defaultAudioLanguage": language
+                },
+                "status": {
+                    "privacyStatus": privacy_status,
+                    "selfDeclaredMadeForKids": made_for_kids,
+                    "license": license
+                },
+                "contentDetails": {
+                    "enableAutoStart": auto_start,
+                    "enableAutoStop": auto_stop,
+                    "enableDvr": enable_dvr,
+                    "enableContentEncryption": False,
+                    "enableEmbed": enable_embed,
+                    "recordFromStart": True,
+                    "startWithSlate": False,
+                    "enableLiveChat": enable_chat,
+                    "monitorStream": {
+                        "enableMonitorStream": True,
+                        "broadcastStreamDelayMs": 0
                     }
                 }
-            )
+            }
+
+            try:
+                broadcast_request = self.youtube.liveBroadcasts().insert(
+                    part="snippet,status,contentDetails",
+                    body=broadcast_body
+                )
+                broadcast = broadcast_request.execute()
+                logger.info(f"✅ Broadcast created: {broadcast['id']}")
+                return broadcast
+                
+            except HttpError as e:
+                # Check for invalidEmbedSetting
+                if "invalidEmbedSetting" in str(e) and enable_embed:
+                    logger.warning("⚠️ enableEmbed=True is not allowed for this account. Retrying with enableEmbed=False...")
+                    broadcast_body['contentDetails']['enableEmbed'] = False
+                    
+                    broadcast_request = self.youtube.liveBroadcasts().insert(
+                        part="snippet,status,contentDetails",
+                        body=broadcast_body
+                    )
+                    broadcast = broadcast_request.execute()
+                    logger.info(f"✅ Broadcast created (with embed disabled): {broadcast['id']}")
+                    return broadcast
+                else:
+                    raise e
             
-            broadcast = broadcast_request.execute()
-            
-            logger.info(f"✅ Broadcast created: {broadcast['id']}")
-            return broadcast
+        except HttpError as e:
+            logger.error(f"❌ Failed to create broadcast: {e}")
+            return None
             
         except HttpError as e:
             logger.error(f"❌ Failed to create broadcast: {e}")
@@ -250,7 +348,7 @@ class YouTubeAPIService:
         
         try:
             stream_request = self.youtube.liveStreams().insert(
-                part="snippet,cdn,status",
+                part="snippet,cdn,status,contentDetails",
                 body={
                     "snippet": {
                         "title": title,
@@ -624,5 +722,10 @@ class YouTubeAPIService:
 
 
 # Global instance
-
 youtube_api = YouTubeAPIService()
+
+
+def get_youtube_service():
+    """Dependency injection for YouTubeAPIService"""
+    return youtube_api
+

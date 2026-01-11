@@ -124,9 +124,22 @@ async def create_page(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         error_message = f"Error connecting to YouTube API: {str(e)}"
     
+    # Get videos for source selection
+    from app.services.video_service import VideoService
+    from app.services.playlist_service import PlaylistService
+    
+    video_service = VideoService(db)
+    videos = video_service.get_all_videos(limit=200)
+    videos_dict = [v.to_dict() for v in videos]
+    
+    playlist_service = PlaylistService(db)
+    playlists = playlist_service.get_all_playlists()
+
     return templates.TemplateResponse("youtube_create.html", {
         "request": request,
         "youtube_available": youtube_available,
         "youtube_accounts": youtube_accounts,
+        "videos": videos_dict,
+        "playlists": playlists,
         "error_message": error_message
     })

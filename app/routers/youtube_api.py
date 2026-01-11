@@ -20,6 +20,12 @@ from app.services.youtube_api_service import youtube_api, YouTubeAPIService
 from app.services.youtube_broadcast_service import YouTubeBroadcastService
 from app.models.stream_key import StreamKey
 from app.models.youtube_account import YouTubeAccount
+from app.models.live_session import LiveSession
+from app.models.video import Video
+from app.models.playlist import Playlist
+from app.services.ffmpeg_service import ffmpeg_service
+from app.services.live_scheduler_service import live_scheduler
+from app.services.playlist_service import PlaylistService
 import os
 import shutil
 from typing import Dict, Any
@@ -59,16 +65,20 @@ class CreateLiveSetupRequest(BaseModel):
     enable_chat: Optional[bool] = True
     tags: Optional[str] = None
     language: Optional[str] = "id"
-    license: Optional[str] = "youtube"
-    auto_start: Optional[bool] = True
-    auto_stop: Optional[bool] = True
-    playlist_id: Optional[str] = None
+    license: str = "youtube"
+    playlist_id: Optional[str] = None  # YouTube Playlist ID (add to playlist)
+    auto_start: bool = True
+    auto_stop: bool = True
+    
+    # New fields for Auto-Stream
+    source_mode: Optional[str] = None  # 'single' or 'playlist'
+    video_id: Optional[int] = None
+    source_playlist_id: Optional[int] = None # Local Playlist ID
+    loop_playback: bool = True
+    timing_mode: str = 'now'  # 'now' or 'later'
+    max_duration_hours: Optional[int] = 0
+    recurrence: str = 'none'
 
-
-class CreateMultipleLivesRequest(BaseModel):
-    """Request model untuk create multiple lives"""
-    setups: List[CreateLiveSetupRequest]
-    account_id: Optional[int] = None
 
 
 @router.post("/create-live-setup")
@@ -94,6 +104,13 @@ def create_live_setup(
     auto_stop: Optional[bool] = Form(True),
     playlist_id: Optional[str] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
+    source_mode: Optional[str] = Form(None),
+    video_id: Optional[int] = Form(None),
+    source_playlist_id: Optional[int] = Form(None),
+    loop_playback: bool = Form(True),
+    timing_mode: str = Form('now'),
+    max_duration_hours: Optional[int] = Form(0),
+    recurrence: str = Form('none'),
     db: Session = Depends(get_db)
 ):
     """
@@ -139,7 +156,6 @@ def create_live_setup(
     # Create complete setup
     try:
         result = youtube_api.create_complete_live_setup(
-            db=db,
             title=broadcast_title,
             description=description,
             scheduled_start_time=scheduled_time,
@@ -160,35 +176,182 @@ def create_live_setup(
             playlist_id=playlist_id
         )
         
-        # Handle Thumbnail if provided
-        if result and result.get('success') and thumbnail:
-            broadcast_id = result.get('broadcast_id')
-            
-            # Save thumbnail temporarily
-            temp_dir = "temp/thumbnails"
-            os.makedirs(temp_dir, exist_ok=True)
-            temp_path = os.path.join(temp_dir, f"{broadcast_id}_{thumbnail.filename}")
-            
-            with open(temp_path, "wb") as buffer:
-                shutil.copyfileobj(thumbnail.file, buffer)
-            
-            # Set thumbnail via API
-            thumb_success = youtube_api.set_thumbnail(broadcast_id, temp_path)
-            
-            if thumb_success:
-                result['thumbnail_updated'] = True
-                # Update DB record with local reference if needed or just mark as success
-                from app.services.youtube_broadcast_service import YouTubeBroadcastService
+        print(f"DEBUG: Result received: {result.keys() if result else 'None'}")
+        if result and result.get('broadcast_id'):
+            try:
+                # 1. Save Broadcast to DB
+                logger.info("Step 1: Saving Broadcast to DB...")
                 broadcast_service = YouTubeBroadcastService(db)
-                # In real scenario, we might want to store the URL if YouTube returns it, 
-                # but thumbnails().set() doesn't return the URL directly in a simple way.
-                # Usually it takes time to process.
+                
+                # Extract stream key info from flattened result
+                stream_key_value = result.get('stream_key')
+                rtmp_url = result.get('rtmp_url')
+                broadcast_id = result.get('broadcast_id')
+                stream_id = result.get('stream_id')
+                
+                # Save StreamKey to DB
+                logger.info(f"Saving StreamKey: {stream_key_value}")
+                stream_key_obj = StreamKey(
+                    name=f"YT: {broadcast_title[:20]}",
+                    stream_key=stream_key_value,
+                    is_active=True
+                )
+                db.add(stream_key_obj)
+                db.commit()
+                db.refresh(stream_key_obj)
+                logger.info(f"StreamKey Saved. ID: {stream_key_obj.id}")
+                
+                # Save YouTubeBroadcast
+                logger.info("Saving YouTubeBroadcast record...")
+                broadcast_service.create_broadcast(
+                    broadcast_id=broadcast_id,
+                    stream_id=stream_id,
+                    stream_key=stream_key_value,
+                    rtmp_url=rtmp_url,
+                    ingestion_address=rtmp_url,
+                    title=broadcast_title,
+                    description=description,
+                    broadcast_url=f"https://youtu.be/{broadcast_id}",
+                    privacy_status=privacy_status,
+                    resolution=resolution,
+                    frame_rate=frame_rate,
+                    scheduled_start_time=scheduled_time,
+                    latency_mode=latency_mode,
+                    enable_dvr=enable_dvr,
+                    made_for_kids=made_for_kids,
+                    category_id=category_id,
+                    thumbnail_url=None, # Thumbnail is handled separately below or not returned in flat dict
+                    enable_embed=enable_embed,
+                    enable_chat=enable_chat,
+                    tags=tags,
+                    language=language,
+                    license=license,
+                    auto_start=auto_start,
+                    auto_stop=auto_stop
+                )
+                logger.info("YouTubeBroadcast record saved.")
+                
+                response_data = {
+                    "success": True,
+                    "broadcast_id": broadcast_id,
+                    "stream_key": stream_key_value,
+                    "stream_started": False,
+                    "scheduled_job_id": None
+                }
+
+                # 2. Handle Thumbnail if provided
+                if thumbnail:
+                    logger.info("Processing thumbnail...")
+                    # Save thumbnail temporarily
+                    temp_dir = "temp/thumbnails"
+                    os.makedirs(temp_dir, exist_ok=True)
+                    temp_path = os.path.join(temp_dir, f"{broadcast_id}_{thumbnail.filename}")
+                    
+                    with open(temp_path, "wb") as buffer:
+                        shutil.copyfileobj(thumbnail.file, buffer)
+                    
+                    # Set thumbnail via API
+                    logger.info("Uploading thumbnail to YouTube...")
+                    thumb_success = youtube_api.set_thumbnail(broadcast_id, temp_path)
+                    
+                    if thumb_success:
+                        response_data['thumbnail_updated'] = True
+                    
+                    # Cleanup temp file
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+
+                # 3. Handle Auto-Stream
+                if source_mode:
+                    logger.info(f"Processing Auto-Stream. Mode: {source_mode}, Timing: {timing_mode}")
+                    try:
+                        video_paths_list = []
+                        
+                        if source_mode == 'single' and video_id:
+                            logger.info(f"Fetching video ID: {video_id}")
+                            video = db.query(Video).filter(Video.id == video_id).first()
+                            if video: 
+                                video_paths_list = [video.path]
+                                logger.info(f"Found video path: {video.path}")
+                            else:
+                                logger.warning(f"Video ID {video_id} not found!")
+                        
+                        elif source_mode == 'playlist' and source_playlist_id:
+                            logger.info(f"Fetching playlist ID: {source_playlist_id}")
+                            pl_service = PlaylistService(db)
+                            video_paths_list = pl_service.get_video_paths(source_playlist_id, shuffle=False)
+                            logger.info(f"Found {len(video_paths_list)} videos in playlist.")
+                        
+                        if video_paths_list:
+                            if timing_mode == 'now':
+                                logger.info("Timing is NOW. Starting stream...")
+                                # Start Immediately
+                                from datetime import datetime
+                                session = LiveSession(
+                                    stream_key_id=stream_key_obj.id,
+                                    video_id=video_id if source_mode == 'single' else None,
+                                    playlist_id=source_playlist_id if source_mode == 'playlist' else None,
+                                    mode=source_mode,
+                                    loop=loop_playback,
+                                    status='starting',
+                                    youtube_id=broadcast_id,
+                                    max_duration_hours=max_duration_hours,
+                                    start_time=datetime.utcnow()
+                                )
+                                db.add(session)
+                                db.commit()
+                                db.refresh(session)
+                                logger.info(f"LiveSession created. ID: {session.id}")
+                                
+                                logger.info("Calling ffmpeg_service.start_stream...")
+                                process = ffmpeg_service.start_stream(
+                                    session_id=session.id,
+                                    video_paths=video_paths_list,
+                                    stream_key=stream_key_obj.get_full_key(),
+                                    loop=loop_playback,
+                                    mode=source_mode
+                                )
+                                
+                                if process:
+                                    session.ffmpeg_pid = process.pid
+                                    session.status = 'running'
+                                    db.commit()
+                                    response_data['stream_started'] = True
+                                    logger.info("Stream started successfully!")
+                                else:
+                                    logger.error("ffmpeg_service.start_stream returned None!")
+                                
+                            elif timing_mode == 'later' and scheduled_time:
+                                logger.info(f"Timing is LATER. Scheduling for {scheduled_time}...")
+                                # Schedule it
+                                scheduled_live = live_scheduler.schedule_live(
+                                    db=db,
+                                    stream_key_id=stream_key_obj.id,
+                                    scheduled_time=scheduled_time,
+                                    video_id=video_id,
+                                    playlist_id=source_playlist_id,
+                                    mode=source_mode,
+                                    loop=loop_playback,
+                                    recurrence=recurrence,
+                                    max_duration_hours=max_duration_hours
+                                )
+                                response_data['scheduled_job_id'] = scheduled_live.id
+                                logger.info(f"Stream scheduled. Job ID: {scheduled_live.id}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to auto-start/schedule stream: {e}", exc_info=True)
+                        # Don't fail the whole request, just log it
+                
+                return response_data
             
-            # Cleanup temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-        
-        return result
+            except Exception as e:
+                logger.error(f"CRITICAL ERROR in create_live_setup: {str(e)}", exc_info=True)
+                # Rollback not always necessary with SessionLocal but good practice in complex transactions
+                # db.rollback() 
+                raise HTTPException(500, f"Internal Server Error: {str(e)}")
+            
+        else:
+             raise HTTPException(500, "Failed to create broadcast (No result returned)")
         
     except FileNotFoundError as e:
         raise HTTPException(500, str(e))
@@ -196,167 +359,7 @@ def create_live_setup(
         raise HTTPException(500, f"Error creating live setup: {str(e)}")
 
 
-@router.post("/create-multiple-lives")
-async def create_multiple_lives(
-    background_tasks: BackgroundTasks,
-    setups: str = Form(...),
-    account_id: Optional[int] = Form(None),
-    thumbnail: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    youtube_api: YouTubeAPIService = Depends(get_youtube_service)
-):
-    """
-    Create multiple live setups at once.
-    
-    Allows creating multiple independent live broadcasts on same channel.
-    Each will have its own stream key.
-    
-    Args:
-        setups: JSON string of list of setups
-        account_id: YouTube account ID
-        thumbnail: Optional thumbnail image for ALL broadcasts
-        
-    Returns:
-        List of created setups
-    """
-    try:
-        # Parse setups JSON
-        setups_data = json.loads(setups)
-        if not isinstance(setups_data, list):
-            raise HTTPException(400, "Setups must be a JSON array of objects.")
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid JSON format for setups")
-        
-    # Handle Thumbnail
-    thumbnail_path = None
-    if thumbnail:
-        try:
-            suffix = Path(thumbnail.filename).suffix
-            # Use NamedTemporaryFile to ensure unique name and proper cleanup
-            with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                shutil.copyfileobj(thumbnail.file, tmp)
-                thumbnail_path = tmp.name
-            background_tasks.add_task(os.unlink, thumbnail_path) # Schedule cleanup
-        except Exception as e:
-            logger.error(f"Failed to save thumbnail: {e}")
-            raise HTTPException(500, f"Failed to save thumbnail: {e}")
-    
-    # Authenticate with specific account if provided
-    if account_id:
-        account = db.query(YouTubeAccount).filter(YouTubeAccount.id == account_id).first()
-        if not account:
-            raise HTTPException(404, f"YouTube Account {account_id} not found")
-        youtube_api.authenticate(token_filename=account.token_filename)
-    else:
-        # Try to find any active account
-        account = db.query(YouTubeAccount).filter(YouTubeAccount.is_active == True).first()
-        if account:
-            youtube_api.authenticate(token_filename=account.token_filename)
-        else:
-            # Fallback to default
-            youtube_api.authenticate() # Authenticate with default credentials
 
-    results = []
-    broadcast_service = YouTubeBroadcastService(db) # Initialize broadcast service
-
-    for setup in setups_data:
-        scheduled_time = None
-        if setup.get('scheduled_start_time'):
-            try:
-                scheduled_time = datetime.fromisoformat(setup.get('scheduled_start_time'))
-            except ValueError:
-                logger.error(f"Invalid datetime format for '{setup.get('broadcast_title')}': {setup.get('scheduled_start_time')}")
-                results.append({
-                    'success': False,
-                    'broadcast_title': setup.get('broadcast_title', 'Unknown'),
-                    'error': f"Invalid datetime format: {setup.get('scheduled_start_time')}"
-                })
-                continue # Skip to next setup
-
-        try:
-            result = youtube_api.create_complete_live_setup(
-                db=db, # Pass db to the service method
-                title=setup.get('broadcast_title', 'Untitled Broadcast'),
-                description=setup.get('description', ''),
-                scheduled_start_time=scheduled_time,
-                privacy_status=setup.get('privacy_status', 'public'),
-                resolution=setup.get('resolution', '1080p'),
-                frame_rate=setup.get('frame_rate', '30fps'),
-                latency_mode=setup.get('latency_mode', 'normal'),
-                enable_dvr=setup.get('enable_dvr', True),
-                made_for_kids=setup.get('made_for_kids', False),
-                category_id=setup.get('category_id', '24'),
-                enable_embed=setup.get('enable_embed', True),
-                enable_chat=setup.get('enable_chat', True),
-                tags=setup.get('tags'),
-                language=setup.get('language', 'id'),
-                license=setup.get('license', 'youtube'),
-                auto_start=setup.get('auto_start', True),
-                auto_stop=setup.get('auto_stop', True),
-                playlist_id=setup.get('playlist_id')
-            )
-            
-            if result and result.get('success'):
-                # Set thumbnail if available
-                if thumbnail_path:
-                    thumb_success = youtube_api.set_thumbnail(result['broadcast_id'], thumbnail_path)
-                    if thumb_success:
-                        result['thumbnail_updated'] = True
-                    else:
-                        logger.warning(f"Failed to set thumbnail for broadcast {result['broadcast_id']}")
-                        result['thumbnail_updated'] = False
-                
-                # Save to DB
-                broadcast_service.create_broadcast(
-                    db=db,
-                    broadcast_id=result['broadcast_id'],
-                    stream_id=result['stream_id'],
-                    stream_key=result['stream_key'],
-                    rtmp_url=result['rtmp_url'],
-                    ingestion_address=result['ingestion_address'],
-                    title=setup.get('broadcast_title', 'Untitled Broadcast'),
-                    description=setup.get('description', ''),
-                    broadcast_url=result['broadcast_url'],
-                    privacy_status=setup.get('privacy_status', 'public'),
-                    resolution=setup.get('resolution', '1080p'),
-                    frame_rate=setup.get('frame_rate', '30fps'),
-                    latency_mode=setup.get('latency_mode', 'normal'),
-                    enable_dvr=setup.get('enable_dvr', True),
-                    made_for_kids=setup.get('made_for_kids', False),
-                    category_id=setup.get('category_id', '24'),
-                    thumbnail_url=None, # YouTube API doesn't return URL directly after set
-                    enable_embed=setup.get('enable_embed', True),
-                    enable_chat=setup.get('enable_chat', True),
-                    tags=setup.get('tags'),
-                    language=setup.get('language', 'id'),
-                    license=setup.get('license', 'youtube'),
-                    auto_start=setup.get('auto_start', True),
-                    auto_stop=setup.get('auto_stop', True)
-                )
-                
-                result['success'] = True
-                results.append(result)
-            else:
-                results.append({
-                    'success': False,
-                    'broadcast_title': setup.get('broadcast_title', 'Unknown'),
-                    'error': result.get('error', 'Failed to create broadcast')
-                })
-                
-        except Exception as e:
-            logger.error(f"Error creating live setup for '{setup.get('broadcast_title', 'Unknown')}': {e}")
-            results.append({
-                'success': False,
-                'broadcast_title': setup.get('broadcast_title', 'Unknown'),
-                'error': str(e)
-            })
-                
-    return {
-        "total_requested": len(setups_data),
-        "total_created": len([r for r in results if r.get('success')]),
-        "total_failed": len(setups_data) - len([r for r in results if r.get('success')]),
-        "results": results
-    }
 
 
 @router.get("/playlists")

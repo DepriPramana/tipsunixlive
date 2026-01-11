@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings - StreamLive{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h2><i class="bi bi-gear-fill"></i> System Settings</h2>
+    <p class="text-muted">Manage global configurations and API keys.</p>
+</div>
+
+{% if success_message %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i> {{ success_message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error_message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group shadow-sm sticky-top" style="top: 20px;">
+            <a href="#" class="list-group-item list-group-item-action active">
+                <i class="bi bi-google me-2"></i> Google API
+            </a>
+            <a href="#" class="list-group-item list-group-item-action disabled">
+                <i class="bi bi-hdd-network me-2"></i> Storage (Coming Soon)
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="row">
+            <!-- Left Column: API Settings -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="card-title mb-0"><i class="bi bi-google text-danger"></i> YouTube Integration Setting
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-4">
+                            Configure your Google OAuth2 credentials to enable YouTube Live Streaming.
+                            <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Get
+                                Credentials</a>
+                        </p>
+
+                        <div
+                            class="alert alert-{% if has_client_secret_db %}success{% else %}warning{% endif %} d-flex align-items-center mb-4">
+                            {% if has_client_secret_db %}
+                            <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+                            <div>
+                                <strong>Configured</strong><br>
+                                <small>Credentials are stored in database.</small>
+                            </div>
+                            <div class="ms-auto">
+                                <form action="/admin/settings/delete-google-secret" method="post"
+                                    onsubmit="return confirm('Are you sure you want to delete the stored credentials?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm p-1 px-2">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                            <div>
+                                <strong>Not Configured</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <form action="/admin/settings/update-google-secret" method="post">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-uppercase text-muted">Authorization Redirect
+                                    URL</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="text" class="form-control bg-light" value="{{ redirect_url }}"
+                                        readonly>
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        onclick="navigator.clipboard.writeText('{{ redirect_url }}')">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Add this to "Authorized redirect URIs" in Google Console.</div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <div class="mb-3">
+                                <label for="clientId" class="form-label fw-bold">Client ID</label>
+                                <input type="text" class="form-control" id="clientId" name="client_id"
+                                    value="{{ client_id }}" required
+                                    placeholder="123456-abcde.apps.googleusercontent.com">
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="clientSecret" class="form-label fw-bold">Client Secret</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="clientSecret" name="client_secret"
+                                        value="{{ client_secret }}" required placeholder="GOCSPX-...">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="toggleSecret()">
+                                        <i class="bi bi-eye" id="toggleIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save me-2"></i> Save Configuration
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Connected Channels -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0"><i class="bi bi-person-video"></i> Connected Channels</h5>
+                        <a href="/dashboard/youtube-accounts" class="btn btn-sm btn-outline-primary"><i
+                                class="bi bi-plus-lg"></i> Add</a>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if channels %}
+                        <div class="list-group list-group-flush">
+                            {% for channel in channels %}
+                            <div class="list-group-item d-flex align-items-center p-3">
+                                <div class="flex-shrink-0">
+                                    <div class="avatar rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                        style="width: 40px; height: 40px; font-size: 1.2rem;">
+                                        {{ channel.name[:1].upper() }}
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-0 fw-bold">{{ channel.name }}</h6>
+                                    <small class="text-muted d-block text-truncate" style="max-width: 150px;">{{
+                                        channel.channel_title or 'Unknown Channel' }}</small>
+                                </div>
+                                <div class="ms-2">
+                                    {% if channel.is_active %}
+                                    <span class="badge bg-success-subtle text-success rounded-pill"><i
+                                            class="bi bi-check-circle-fill"></i> Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill">Inactive</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <i class="bi bi-person-x display-4 mb-3 d-block opacity-25"></i>
+                            <p class="mb-0">No channels connected yet.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleSecret() {
+        const input = document.getElementById('clientSecret');
+        const icon = document.getElementById('toggleIcon');
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = "password";
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
+{% endblock %}

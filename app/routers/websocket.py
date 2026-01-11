@@ -90,8 +90,72 @@ async def monitoring_ws(websocket: WebSocket):
             # Update every 2 seconds
             await asyncio.sleep(2)
             
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
+
+
+@router.websocket("/logs/{session_id}")
+async def stream_logs_ws(websocket: WebSocket, session_id: int):
+    """
+    WebSocket endpoint to stream FFmpeg logs in real-time.
+    Acts like 'tail -f'.
+    """
+    await manager.connect(websocket)
+    try:
+        # Get session to find log file
+        db = SessionLocal()
+        session = db.query(LiveSession).filter(LiveSession.id == session_id).first()
+        db.close()
+
+        if not session:
+            await websocket.send_text("Session not found")
+            await websocket.close()
+            return
+            
+        # Get log file path from service
+        # If active, get from registry. If not, try to find file.
+        log_file = None
+        if session_id in ffmpeg_service.active_processes:
+            log_file = ffmpeg_service.active_processes[session_id]['log_file']
+        else:
+            # Try to find latest log file for this session
+            import os
+            log_dir = ffmpeg_service.log_dir
+            files = sorted([f for f in os.listdir(log_dir) if f.startswith(f"session_{session_id}_")])
+            if files:
+                log_file = os.path.join(log_dir, files[-1])
+        
+        if not log_file or not os.path.exists(log_file):
+            await websocket.send_text("Log file not found")
+            await websocket.close()
+            return
+
+        # Tail the file
+        with open(log_file, 'r') as f:
+            # Go to end of file for new logs, or read last N lines?
+            # Let's read last 50 lines first
+            lines = f.readlines()
+            for line in lines[-50:]:
+                await websocket.send_text(line)
+            
+            # Now tail
+            import time
+            f.seek(0, 2) # Go to end
+            
+            while True:
+                line = f.readline()
+                if line:
+                    await websocket.send_text(line)
+                else:
+                    await asyncio.sleep(0.1)
+                    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Log WebSocket error: {e}")
+        try:
+            await websocket.send_text(f"Error: {str(e)}")
+            manager.disconnect(websocket)
+        except:
+            pass

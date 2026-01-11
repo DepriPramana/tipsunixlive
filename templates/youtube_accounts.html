@@ -76,9 +76,22 @@
             <form action="/dashboard/youtube-accounts/add" method="POST">
                 <div class="modal-body">
                     <div class="alert alert-info small">
-                        <i class="bi bi-info-circle"></i> Setelah menekan tombol "Authorize", tab baru akan terbuka di
-                        browser untuk proses login Google. Pastikan file <code>client_secrets.json</code> sudah ada di
-                        folder project.
+                        <i class="bi bi-info-circle"></i> Setelah menekan tombol "Authorize", anda akan diarahkan ke
+                        Google.
+                        <br><br>
+                        <strong>Konfigurasi Google Cloud Console:</strong>
+                        <p class="mb-1">Pastikan URI berikut sudah ditambahkan ke "Authorized redirect URIs" di OAuth
+                            Client ID anda:</p>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" class="form-control" value="{{ callback_url }}" id="callbackUrl" readonly
+                                onclick="this.select()">
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="navigator.clipboard.writeText(document.getElementById('callbackUrl').value)">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                        <div class="text-muted fst-italic">Jika running di server dengan HTTPS, pastikan URL diawali
+                            https://</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Nama Identitas Akun (Bebas)</label>

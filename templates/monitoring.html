@@ -318,6 +318,24 @@
         </div>
     </div>
 </div>
+<!-- Log Viewer Modal -->
+<div class="modal fade" id="logModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title font-monospace" id="logTitle">FFmpeg Logs</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="logContent" class="p-3 font-monospace small"
+                    style="background-color: #1e1e1e; color: #d4d4d4; white-space: pre-wrap; height: 70vh; overflow-y: auto;">
+                    <!-- Logs will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -462,9 +480,18 @@
                         ` : ''}
                     </div>
                     <div class="card-footer bg-white">
-                        <button class="btn btn-danger w-100 stop-stream-btn" data-session-id="${session.id}">
-                            <i class="bi bi-stop-circle"></i> Stop Stream
-                        </button>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-outline-dark w-100 btn-sm" onclick="openLogViewer(${session.id}, '${session.stream_key_name}')">
+                                    <i class="bi bi-terminal"></i> View Logs
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-danger w-100 btn-sm stop-stream-btn" data-session-id="${session.id}">
+                                    <i class="bi bi-stop-circle"></i> Stop Stream
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -550,6 +577,43 @@
         // Stop video when modal closed
         document.getElementById('previewModal').addEventListener('hidden.bs.modal', function () {
             document.getElementById('previewIframe').src = '';
+        });
+    }
+
+    // Log Viewer logic
+    let logWs;
+    function openLogViewer(sessionId, title) {
+        const modal = new bootstrap.Modal(document.getElementById('logModal'));
+        document.getElementById('logTitle').textContent = `FFmpeg Logs: ${title}`;
+        const logContent = document.getElementById('logContent');
+        logContent.innerHTML = ''; // Clear logs
+        modal.show();
+
+        // Connect WebSocket
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        logWs = new WebSocket(`${protocol}//${window.location.host}/ws/logs/${sessionId}`);
+
+        logWs.onopen = () => {
+            logContent.innerHTML += '<div class="text-success">--- Connected to Log Stream ---</div>';
+        };
+
+        logWs.onmessage = (event) => {
+            const line = document.createElement('div');
+            line.textContent = event.data;
+            logContent.appendChild(line);
+            // Auto scroll
+            logContent.scrollTop = logContent.scrollHeight;
+        };
+
+        logWs.onclose = () => {
+            logContent.innerHTML += '<div class="text-warning">--- Connection Closed ---</div>';
+        };
+
+        // Clean up on close
+        document.getElementById('logModal').addEventListener('hidden.bs.modal', function () {
+            if (logWs) {
+                logWs.close();
+            }
         });
     }
 

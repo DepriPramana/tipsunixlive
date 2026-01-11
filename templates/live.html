@@ -386,6 +386,16 @@
                         <div class="form-text">Siaran akan berhenti otomatis setelah waktu habis.</div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Recurrence (Ulangi)</label>
+                        <select class="form-select" id="scheduleRecurrenceSelect">
+                            <option value="none">One-time Event (Sekali saja)</option>
+                            <option value="daily">Daily (Setiap Hari)</option>
+                            <option value="weekly">Weekly (Setiap Minggu)</option>
+                        </select>
+                        <div class="form-text">Jadwal baru akan dibuat otomatis setelah siaran selesai.</div>
+                    </div>
+
                     <button type="submit" class="btn btn-warning w-100">
                         <i class="bi bi-clock"></i> Schedule Live
                     </button>
@@ -393,311 +403,140 @@
             </div>
         </div>
     </div>
+    <!-- ... -->
+    <script>
+        // ... existing JS ...
+        // Scheduled Live Form
+        document.getElementById('scheduledLiveForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-    <!-- Stop Live -->
-    <div class="col-md-6">
-        <div class="card control-card stop border-0 shadow-sm h-100">
-            <div class="card-header bg-danger bg-opacity-10">
-                <h5 class="mb-0 text-danger">
-                    <i class="bi bi-stop-circle"></i> Stop Live
-                </h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">Hentikan streaming yang sedang berjalan</p>
+            const streamKeyId = document.getElementById('scheduleStreamKeySelect').value;
+            const playlistId = document.getElementById('schedulePlaylistSelect').value;
+            const dateTime = document.getElementById('scheduleDateTime').value;
+            const duration = document.getElementById('scheduleDurationSelect').value;
+            const recurrence = document.getElementById('scheduleRecurrenceSelect').value;
 
-                <div class="mb-3">
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <strong>Warning:</strong> Stopping the stream will end the current live session.
-                    </div>
-                </div>
-
-                <div class="d-grid gap-2">
-                    <button class="btn btn-danger" onclick="stopStream()" {% if not stream_status.is_streaming
-                        %}disabled{% endif %}>
-                        <i class="bi bi-stop-circle"></i> Stop Current Stream
-                    </button>
-
-                    <button class="btn btn-outline-warning" onclick="restartStream()" {% if not
-                        stream_status.is_streaming %}disabled{% endif %}>
-                        <i class="bi bi-arrow-clockwise"></i> Restart Stream
-                    </button>
-                </div>
-
-                {% if stream_status.is_streaming %}
-                <div class="mt-3">
-                    <small class="text-muted">
-                        Current session will be saved to history
-                    </small>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Actions -->
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <a href="/admin/playlists" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-plus-circle"></i> Create Playlist
-                        </a>
-                    </div>
-                    <div class="col-md-3">
-                        <a href="/admin/calendar" class="btn btn-outline-warning w-100">
-                            <i class="bi bi-calendar-event"></i> Schedule
-                        </a>
-                    </div>
-                    <div class="col-md-3">
-                        <a href="/admin/history" class="btn btn-outline-info w-100">
-                            <i class="bi bi-clock-history"></i> View History
-                        </a>
-                    </div>
-                    <div class="col-md-3">
-                        <button class="btn btn-outline-secondary w-100" onclick="refreshStatus()">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh Status
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Manual Live Form
-    document.getElementById('manualLiveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const streamKeyId = document.getElementById('manualStreamKeySelect').value;
-        const videoId = document.getElementById('manualVideoSelect').value;
-        const loop = document.getElementById('manualLoop').checked;
-        const duration = document.getElementById('manualDurationSelect').value;
-
-        if (!streamKeyId) {
-            showToast('Please select a stream key', 'danger');
-            return;
-        }
-
-        if (!videoId) {
-            showToast('Please select a video', 'danger');
-            return;
-        }
-
-        const btn = document.getElementById('manualSubmitBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
-
-        try {
-            const response = await axios.post('/live/manual', {
-                stream_key_id: parseInt(streamKeyId),
-                video_id: parseInt(videoId),
-                mode: 'single',
-                loop: loop,
-                max_duration_hours: parseInt(duration)
-            });
-
-            showToast('Manual stream started successfully!', 'success');
-            setTimeout(() => location.reload(), 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to start manual stream', 'danger');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-broadcast"></i> Start Manual Live';
-        }
-    });
-
-    // Show playlist info when selected
-    document.getElementById('playlistSelect').addEventListener('change', function () {
-        const option = this.options[this.selectedIndex];
-        if (option.value) {
-            document.getElementById('playlistInfo').style.display = 'block';
-            document.getElementById('infoMode').textContent = option.dataset.mode;
-            document.getElementById('infoCount').textContent = option.dataset.count;
-        } else {
-            document.getElementById('playlistInfo').style.display = 'none';
-        }
-    });
-
-    // Playlist Live Form
-    document.getElementById('playlistLiveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const streamKeyId = document.getElementById('streamKeySelect').value;
-        const playlistId = document.getElementById('playlistSelect').value;
-        const loop = document.getElementById('playlistLoop').checked;
-        const duration = document.getElementById('playlistDurationSelect').value;
-
-        if (!streamKeyId) {
-            showToast('Please select a stream key', 'danger');
-            return;
-        }
-
-        if (!playlistId) {
-            showToast('Please select a playlist', 'danger');
-            return;
-        }
-
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
-
-        try {
-            // Use new /live/manual endpoint
-            const response = await axios.post('/live/manual', {
-                stream_key_id: parseInt(streamKeyId),
-                playlist_id: parseInt(playlistId),
-                mode: 'playlist',
-                loop: loop,
-                max_duration_hours: parseInt(duration)
-            });
-
-            showToast('Stream started successfully!', 'success');
-            setTimeout(() => location.reload(), 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-broadcast"></i> Start Playlist Live';
-        }
-    });
-
-    // Scheduled Live Form
-    document.getElementById('scheduledLiveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const streamKeyId = document.getElementById('scheduleStreamKeySelect').value;
-        const playlistId = document.getElementById('schedulePlaylistSelect').value;
-        const dateTime = document.getElementById('scheduleDateTime').value;
-        const duration = document.getElementById('scheduleDurationSelect').value;
-
-        if (!streamKeyId) {
-            showToast('Please select a stream key', 'danger');
-            return;
-        }
-
-        if (!playlistId || !dateTime) {
-            showToast('Please fill all fields', 'danger');
-            return;
-        }
-
-        // Convert to ISO format
-        const scheduledTime = new Date(dateTime).toISOString();
-
-        // Check if time is in future
-        if (new Date(dateTime) <= new Date()) {
-            showToast('Scheduled time must be in the future', 'danger');
-            return;
-        }
-
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scheduling...';
-
-        try {
-            // Use /live/schedule endpoint
-            const response = await axios.post('/live/schedule', {
-                stream_key_id: parseInt(streamKeyId),
-                playlist_id: parseInt(playlistId),
-                scheduled_time: scheduledTime,
-                mode: 'playlist',
-                loop: true,
-                max_duration_hours: parseInt(duration),
-                recurrence: 'none'
-            });
-
-            showToast('Scheduled successfully for ' + new Date(dateTime).toLocaleString(), 'success');
-
-            // Reset form
-            e.target.reset();
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
-
-            // Redirect to calendar page after 1.5s
-            setTimeout(() => window.location.href = '/admin/calendar', 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to schedule', 'danger');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
-        }
-    });
-
-    // Stop stream
-    async function stopStream() {
-        if (!confirm('Are you sure you want to stop the current stream?')) return;
-
-        try {
-            await axios.post('/live/stop');
-            showToast('Stream stopped successfully!', 'success');
-            setTimeout(() => location.reload(), 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to stop stream', 'danger');
-        }
-    }
-
-    // Restart stream
-    async function restartStream() {
-        if (!confirm('Are you sure you want to restart the stream?')) return;
-
-        try {
-            await axios.post('/live/restart');
-            showToast('Stream restarted successfully!', 'success');
-            setTimeout(() => location.reload(), 1500);
-        } catch (error) {
-            showToast(error.response?.data?.detail || 'Failed to restart stream', 'danger');
-        }
-    }
-
-    // Refresh status
-    async function refreshStatus() {
-        try {
-            const response = await axios.get('/live/status');
-            showToast('Status refreshed', 'success');
-            setTimeout(() => location.reload(), 500);
-        } catch (error) {
-            showToast('Failed to refresh status', 'danger');
-        }
-    }
-
-    // Emergency Cleanup
-    async function emergencyCleanup() {
-        if (!confirm('AWAS: Ini akan mematikan paksa semua proses FFmpeg yang tidak dikenal sistem.\n\nGunakan ini HANYA jika Anda melihat error "More than one ingestion" di YouTube.\n\nLanjutkan?')) return;
-
-        try {
-            const response = await axios.post('/live/cleanup-orphans');
-            const data = response.data;
-            if (data.killed_count > 0) {
-                showToast(`Cleanup Berhasil! Mematikan ${data.killed_count} proses liar.`, 'success');
-            } else {
-                showToast('Tidak ada proses liar yang ditemukan.', 'info');
+            if (!streamKeyId) {
+                showToast('Please select a stream key', 'danger');
+                return;
             }
-            setTimeout(() => location.reload(), 2000);
-        } catch (error) {
-            showToast('Gagal melakukan cleanup: ' + (error.response?.data?.detail || 'Error'), 'danger');
-        }
-    }
 
-    // Auto-refresh status every 10 seconds
-    setInterval(async () => {
-        try {
-            const response = await axios.get('/live/status');
-            // Update status card without full reload
-            console.log('Status updated:', response.data);
-        } catch (error) {
-            console.error('Failed to fetch status');
-        }
-    }, 10000);
+            if (!playlistId || !dateTime) {
+                showToast('Please fill all fields', 'danger');
+                return;
+            }
 
-    // Set minimum datetime to now
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    document.getElementById('scheduleDateTime').min = now.toISOString().slice(0, 16);
-</script>
-{% endblock %}
+            // Convert to ISO format
+            const scheduledTime = new Date(dateTime).toISOString();
+
+            // Check if time is in future
+            if (new Date(dateTime) <= new Date()) {
+                showToast('Scheduled time must be in the future', 'danger');
+                return;
+            }
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scheduling...';
+
+            try {
+                // Use /live/schedule endpoint
+                const response = await axios.post('/live/schedule', {
+                    stream_key_id: parseInt(streamKeyId),
+                    playlist_id: parseInt(playlistId),
+                    scheduled_time: scheduledTime,
+                    mode: 'playlist',
+                    loop: true,
+                    max_duration_hours: parseInt(duration),
+                    recurrence: recurrence
+                });
+
+
+                showToast('Scheduled successfully for ' + new Date(dateTime).toLocaleString(), 'success');
+
+                // Reset form
+                e.target.reset();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
+
+                // Redirect to calendar page after 1.5s
+                setTimeout(() => window.location.href = '/admin/calendar', 1500);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to schedule', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-clock"></i> Schedule Live';
+            }
+        });
+
+        // Stop stream
+        async function stopStream() {
+            if (!confirm('Are you sure you want to stop the current stream?')) return;
+
+            try {
+                await axios.post('/live/stop');
+                showToast('Stream stopped successfully!', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to stop stream', 'danger');
+            }
+        }
+
+        // Restart stream
+        async function restartStream() {
+            if (!confirm('Are you sure you want to restart the stream?')) return;
+
+            try {
+                await axios.post('/live/restart');
+                showToast('Stream restarted successfully!', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Failed to restart stream', 'danger');
+            }
+        }
+
+        // Refresh status
+        async function refreshStatus() {
+            try {
+                const response = await axios.get('/live/status');
+                showToast('Status refreshed', 'success');
+                setTimeout(() => location.reload(), 500);
+            } catch (error) {
+                showToast('Failed to refresh status', 'danger');
+            }
+        }
+
+        // Emergency Cleanup
+        async function emergencyCleanup() {
+            if (!confirm('AWAS: Ini akan mematikan paksa semua proses FFmpeg yang tidak dikenal sistem.\n\nGunakan ini HANYA jika Anda melihat error "More than one ingestion" di YouTube.\n\nLanjutkan?')) return;
+
+            try {
+                const response = await axios.post('/live/cleanup-orphans');
+                const data = response.data;
+                if (data.killed_count > 0) {
+                    showToast(`Cleanup Berhasil! Mematikan ${data.killed_count} proses liar.`, 'success');
+                } else {
+                    showToast('Tidak ada proses liar yang ditemukan.', 'info');
+                }
+                setTimeout(() => location.reload(), 2000);
+            } catch (error) {
+                showToast('Gagal melakukan cleanup: ' + (error.response?.data?.detail || 'Error'), 'danger');
+            }
+        }
+
+        // Auto-refresh status every 10 seconds
+        setInterval(async () => {
+            try {
+                const response = await axios.get('/live/status');
+                // Update status card without full reload
+                console.log('Status updated:', response.data);
+            } catch (error) {
+                console.error('Failed to fetch status');
+            }
+        }, 10000);
+
+        // Set minimum datetime to now
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('scheduleDateTime').min = now.toISOString().slice(0, 16);
+    </script>
+    {% endblock %}

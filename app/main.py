@@ -39,6 +39,8 @@ app.include_router(relive.router, dependencies=protected_dependency)  # Re-live 
 from app.routers import youtube_accounts, users
 app.include_router(youtube_accounts.router, dependencies=protected_dependency)
 app.include_router(users.router, dependencies=protected_dependency)
+from app.routers import settings
+app.include_router(settings.router, dependencies=protected_dependency)
 app.include_router(websocket.router)  # WebSocket monitoring (usually handles auth internally or via initial connection)
 
 # Optional: YouTube API
@@ -47,7 +49,8 @@ try:
     app.include_router(youtube_api.router, dependencies=protected_dependency)  # YouTube API endpoints
     app.include_router(youtube_web.router, dependencies=protected_dependency)  # YouTube web pages
     app.include_router(media.router, dependencies=protected_dependency)  # Media Library
-except ImportError:
+except ImportError as e:
+    print(f"⚠️ Failed to import YouTube modules: {e}")
     pass
 
 # Mount static files for thumbnails

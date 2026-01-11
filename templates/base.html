@@ -245,6 +245,10 @@
                 Tools
             </div>
 
+            <a class="nav-link {% if '/admin/settings' in request.url.path %}active{% endif %}" href="/admin/settings">
+                <i class="bi bi-gear-fill"></i> System Settings
+            </a>
+
             <a class="nav-link {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users">
                 <i class="bi bi-people-fill"></i> User Management
             </a>
