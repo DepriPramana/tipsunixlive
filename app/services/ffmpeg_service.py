@@ -345,8 +345,6 @@ class FFmpegService:
             # Stream Copy Mode (Near 0% CPU Usage)
             '-c:v', 'copy',
             '-c:a', 'copy',
-            '-b:a', '128k',          # Included as requested, though 'copy' takes priority
-            '-ar', '44100',          # Included as requested, though 'copy' takes priority
             
             # Output settings
             '-f', 'flv',
