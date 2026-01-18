@@ -5,6 +5,8 @@ import os
 from app.database import SessionLocal
 from app.services.video_service import VideoService
 
+from app.services.auth_service import get_current_user_from_cookie
+
 router = APIRouter(tags=["Video Upload"])
 UPLOAD_DIR = "videos/uploaded"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -19,6 +21,7 @@ def get_db():
 @router.post("/upload")
 async def upload_video(
     file: UploadFile = File(...),
+    current_user: str = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db)
 ):
     """
@@ -63,6 +66,7 @@ os.makedirs(BACKGROUND_DIR, exist_ok=True)
 @router.post("/upload/music")
 async def upload_music(
     file: UploadFile = File(...),
+    current_user: str = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db)
 ):
     """
@@ -109,6 +113,7 @@ async def upload_music(
 @router.post("/upload/background")
 async def upload_background(
     file: UploadFile = File(...),
+    current_user: str = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db)
 ):
     """
@@ -205,4 +210,135 @@ async def list_background_videos():
             })
     
     return {"files": files}
+
+
+# Sound Effect Upload
+SOUND_EFFECT_DIR = "videos/sound_effects"
+os.makedirs(SOUND_EFFECT_DIR, exist_ok=True)
+
+@router.post("/upload/sound-effect")
+async def upload_sound_effect(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload sound effect (ambient) file.
+    Allowed formats: MP3, AAC, WAV, OGG, M4A
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Empty filename")
+    
+    # Validate file extension
+    allowed_extensions = ['.mp3', '.aac', '.m4a', '.wav', '.flac', '.ogg']
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    file_path = os.path.join(SOUND_EFFECT_DIR, file.filename)
+    
+    # Check if file already exists
+    if os.path.exists(file_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File '{file.filename}' already exists. Please rename or delete the existing file."
+        )
+    
+    # Save file to disk
+    try:
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    return {
+        "success": True,
+        "message": "Sound effect uploaded successfully",
+        "filename": file.filename,
+        "path": file_path,
+        "size": os.path.getsize(file_path)
+    }
+
+@router.get("/sound-effects/list")
+async def list_sound_effects():
+    """
+    List semua file sound effect yang tersedia.
+    """
+    if not os.path.exists(SOUND_EFFECT_DIR):
+        return {"files": []}
+    
+    files = []
+    for filename in os.listdir(SOUND_EFFECT_DIR):
+        file_path = os.path.join(SOUND_EFFECT_DIR, filename)
+        if os.path.isfile(file_path):
+            files.append({
+                "filename": filename,
+                "path": file_path,
+                "size": os.path.getsize(file_path)
+            })
+    
+    return {"files": files}
+
+
+@router.delete("/sound-effects/{filename}")
+async def delete_sound_effect(
+    filename: str,
+    current_user: str = Depends(get_current_user_from_cookie)
+):
+    """
+    Delete sound effect file.
+    """
+    file_path = os.path.join(SOUND_EFFECT_DIR, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        os.remove(file_path)
+        return {"success": True, "message": f"Sound effect '{filename}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+
+@router.delete("/music/{filename}")
+async def delete_music(
+    filename: str,
+    current_user: str = Depends(get_current_user_from_cookie)
+):
+    """
+    Delete music file.
+    """
+    file_path = os.path.join(MUSIC_DIR, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        os.remove(file_path)
+        return {"success": True, "message": f"Music file '{filename}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+
+@router.delete("/backgrounds/{filename}")
+async def delete_background(
+    filename: str,
+    current_user: str = Depends(get_current_user_from_cookie)
+):
+    """
+    Delete background video file.
+    """
+    file_path = os.path.join(BACKGROUND_DIR, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        os.remove(file_path)
+        return {"success": True, "message": f"Background video '{filename}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
 

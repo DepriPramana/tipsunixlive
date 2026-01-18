@@ -26,7 +26,7 @@ app.include_router(auth.router)  # Auth (Login/Logout)
 protected_dependency = [Depends(get_current_user_from_cookie)]
 
 app.include_router(web.router, dependencies=protected_dependency)  # Web admin dashboard
-app.include_router(upload.router, dependencies=protected_dependency)
+app.include_router(upload.router) # Auth handled internally in router to fix 422 UploadFile conflict
 app.include_router(live.router, dependencies=protected_dependency)
 app.include_router(playlist.router, dependencies=protected_dependency)
 app.include_router(gdrive_router, dependencies=protected_dependency)

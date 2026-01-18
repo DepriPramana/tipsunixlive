@@ -465,29 +465,18 @@ class FFmpegService:
             logger.error(f"Failed to start music playlist stream for session {session_id}: {e}")
             return None
     
+
     def _build_music_playlist_command(
         self,
         video_background_path: str,
         music_concat_file: str,
         stream_key: str,
-        audio_bitrate: str = "128k"
+        audio_bitrate: str = "128k",
+        sound_effect_path: Optional[str] = None,
+        sound_effect_volume: float = 0.3
     ) -> List[str]:
         """
-        Build FFmpeg command untuk music playlist streaming.
-        
-        Optimized command dengan:
-        - -c:v copy: No video re-encoding (CPU usage minimal)
-        - -stream_loop -1: Infinite loop untuk video dan audio
-        - -map 0:v:0 -map 1:a:0: Ambil video dari input 0, audio dari input 1
-        
-        Args:
-            video_background_path: Path ke video background
-            music_concat_file: Path ke concat file musik
-            stream_key: YouTube stream key
-            audio_bitrate: Audio bitrate
-            
-        Returns:
-            List command arguments
+        Build optimized FFmpeg command for music playlist with optional sound effect.
         """
         
         # RTMP URL
@@ -498,42 +487,61 @@ class FFmpegService:
             FFMPEG_PATH,
             '-nostdin',              # Disable interactive stdin
             '-loglevel', 'warning',  # Only show warnings and errors
-            '-fflags', '+genpts+igndts', # Force generation of PTS and ignore DTS for stability
+            '-fflags', '+genpts+igndts', # Force generation of PTS
             
             # Input 0: Video Background (looping)
-            '-thread_queue_size', '512', # Increase buffer
-            '-stream_loop', '-1',    # Infinite loop
-            '-re',                   # Read at native frame rate
+            '-thread_queue_size', '512',
+            '-stream_loop', '-1',
+            '-re',
             '-i', video_background_path,
             
             # Input 1: Music Playlist (looping)
-            '-thread_queue_size', '512', # Increase buffer
+            '-thread_queue_size', '512',
             '-f', 'concat',
             '-safe', '0',
-            '-stream_loop', '-1',    # Infinite loop
-            '-i', music_concat_file,
+            '-stream_loop', '-1',
+            '-i', music_concat_file
+        ]
+        
+        # Input 2: Sound Effect (Optional)
+        if sound_effect_path and os.path.exists(sound_effect_path):
+            cmd.extend([
+                '-thread_queue_size', '512',
+                '-stream_loop', '-1',
+                '-i', sound_effect_path
+            ])
             
-            # Video: Copy (no re-encoding) - CPU usage minimal!
-            # NOTE: Keyframe interval MUST be set in source video!
-            # YouTube requires keyframe every 2-4 seconds.
-            # Pre-encode your background video with: -g 60 -keyint_min 60
+            # Complex filtergraph for mixing
+            # [1:a]volume=1.0[music];[2:a]volume=0.3[sfx];[music][sfx]amix=inputs=2:duration=longest
+            cmd.extend([
+                '-filter_complex',
+                f'[1:a]volume=1.0[music];[2:a]volume={sound_effect_volume}[sfx];[music][sfx]amix=inputs=2:duration=longest[outa]',
+                '-map', '0:v:0',         # Video from background
+                '-map', '[outa]'         # Mixed audio
+            ])
+        else:
+            # Simple mapping if no sound effect
+            cmd.extend([
+                '-map', '0:v:0',         # Video from background
+                '-map', '1:a:0'          # Audio from playlist
+            ])
+
+        # Common output settings
+        cmd.extend([
+            # Video: Copy (no re-encoding)
             '-c:v', 'copy',
             
-            # Audio: Re-encode to AAC for compatibility
+            # Audio: Re-encode to AAC
             '-c:a', 'aac',
             '-b:a', audio_bitrate,
-            '-ar', '44100',          # Sample rate
-            '-ac', '2',              # Stereo
+            '-ar', '44100',
+            '-ac', '2',
             
-            # Mapping: Video from input 0, Audio from input 1
-            '-map', '0:v:0',         # Video from background
-            '-map', '1:a:0',         # Audio from playlist
-            
-            # Output settings
+            # Output format
             '-f', 'flv',
             '-flvflags', 'no_duration_filesize',
             rtmp_url
-        ]
+        ])
         
         return cmd
 

@@ -54,7 +54,9 @@ class MusicPlaylistService:
         name: str,
         video_background_path: str,
         music_files: List[str],
-        mode: str = "sequence"
+        mode: str = "sequence",
+        sound_effect_path: Optional[str] = None,
+        sound_effect_volume: float = 0.3
     ) -> MusicPlaylist:
         """
         Membuat music playlist baru.
@@ -64,6 +66,8 @@ class MusicPlaylistService:
             video_background_path: Path ke video background
             music_files: List path file musik
             mode: Mode pemutaran ('sequence' atau 'random')
+            sound_effect_path: Path file sound effect (optional)
+            sound_effect_volume: Volume sound effect (0.0 - 1.0)
             
         Returns:
             MusicPlaylist object yang baru dibuat
@@ -76,12 +80,18 @@ class MusicPlaylistService:
         for music_file in music_files:
             if not os.path.exists(music_file):
                 raise FileNotFoundError(f"Music file not found: {music_file}")
+                
+        # Validate sound effect if provided
+        if sound_effect_path and not os.path.exists(sound_effect_path):
+            raise FileNotFoundError(f"Sound effect file not found: {sound_effect_path}")
         
         playlist = MusicPlaylist(
             name=name,
             video_background_path=video_background_path,
             music_files=music_files,
-            mode=mode
+            mode=mode,
+            sound_effect_path=sound_effect_path,
+            sound_effect_volume=sound_effect_volume
         )
         
         self.db.add(playlist)

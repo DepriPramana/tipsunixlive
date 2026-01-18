@@ -28,100 +28,164 @@
             </div>
             <div class="modal-body">
                 <form id="createMusicPlaylistForm">
-                    <div class="row">
-                        <!-- Left Column: Playlist Info -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Playlist Name</label>
-                                <input type="text" class="form-control" id="playlistName" required>
-                                <div class="form-text">e.g., "Lofi Hip Hop Radio 24/7"</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Playback Mode</label>
-                                <select class="form-select" id="playlistMode">
-                                    <option value="sequence">Sequence (Play in order)</option>
-                                    <option value="random">Random (Shuffle)</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Video Background</label>
-                                <select class="form-select" id="videoBackground" required>
-                                    <option value="">-- Select Video Background --</option>
-                                </select>
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Video should be pre-encoded (H.264, 1080p,
-                                    3000-5000kbps) for optimal CPU usage
-                                </div>
-                            </div>
-
-                            <!-- Link to Media Library -->
-                            <div class="alert alert-info py-2">
-                                <small>
-                                    <i class="bi bi-folder-symlink"></i> Need to upload video backgrounds?
-                                    <a href="/admin/media" target="_blank">Go to Media Library</a>
-                                </small>
-                            </div>
-                        </div>
-
-                        <!-- Right Column: Music Files -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Music Files</label>
-
-                                <!-- Search and Filter -->
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <input type="text" class="form-control form-control-sm" id="createMusicSearch"
-                                            placeholder="Search..." onkeyup="filterMusicFiles()">
+                    <div class="row g-4">
+                        <!-- Left Column: Settings -->
+                        <div class="col-lg-6">
+                            <!-- Basic Info Card -->
+                            <div class="card mb-3 shadow-sm border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-uppercase text-muted small fw-bold mb-3">General Settings
+                                    </h6>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-medium">Playlist Name</label>
+                                        <input type="text" class="form-control" id="playlistName"
+                                            placeholder="e.g., Lofi Hip Hop Radio 24/7" required>
                                     </div>
-                                    <div class="col-6">
-                                        <select class="form-select form-select-sm" id="createCategoryFilter"
-                                            onchange="filterMusicFiles()">
-                                            <option value="">All Categories</option>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-medium">Playback Mode</label>
+                                        <select class="form-select" id="playlistMode">
+                                            <option value="sequence">Sequence (Play in order)</option>
+                                            <option value="random">Random (Shuffle)</option>
                                         </select>
                                     </div>
                                 </div>
-
-                                <!-- Selection Buttons -->
-                                <div class="mb-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                        onclick="selectAllVisibleMusic()">
-                                        <i class="bi bi-check-all"></i> Select Visible
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        onclick="deselectAllMusic()">
-                                        <i class="bi bi-x"></i> Clear
-                                    </button>
-                                </div>
-
-                                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;"
-                                    id="musicFilesContainer">
-                                    <p class="text-muted text-center">Loading music files...</p>
-                                </div>
-                                <small class="text-muted" id="musicFilesCount"></small>
                             </div>
 
-                            <!-- Link to Music Library -->
-                            <div class="alert alert-info py-2">
-                                <small>
-                                    <i class="bi bi-music-note-beamed"></i> Need to upload music files?
-                                    <a href="/admin/music-library" target="_blank">Go to Music Library</a>
-                                </small>
+                            <!-- Visuals & Audio Card -->
+                            <div class="card shadow-sm border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-uppercase text-muted small fw-bold mb-3">Visuals &
+                                        Ambiance</h6>
+
+                                    <!-- Video Background -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-medium">Video Background</label>
+                                        <select class="form-select mb-1" id="videoBackground" required>
+                                            <option value="">-- Select Video Background --</option>
+                                        </select>
+                                        <small class="text-muted d-block mb-2">
+                                            <i class="bi bi-info-circle"></i> Use pre-encoded 1080p, 3000-5000kbps
+                                            videos for efficiency.
+                                        </small>
+                                        <a href="/admin/media" target="_blank" class="text-decoration-none small"><i
+                                                class="bi bi-folder"></i> Managed in Media Library</a>
+                                    </div>
+
+                                    <hr class="text-muted opacity-25">
+
+                                    <!-- Sound Effect -->
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label fw-medium mb-0">Ambient Sound</label>
+                                            <span class="badge bg-secondary rounded-pill">Optional</span>
+                                        </div>
+
+                                        <div class="input-group mb-3">
+                                            <span class="input-group-text bg-white border-end-0"><i
+                                                    class="bi bi-soundwave"></i></span>
+                                            <select class="form-select border-start-0 ps-0" id="soundEffectSelect">
+                                                <option value="">-- No Sound Effect --</option>
+                                            </select>
+                                            <label class="btn btn-outline-secondary" for="uploadSoundEffect"
+                                                title="Upload New Sound">
+                                                <i class="bi bi-upload"></i>
+                                            </label>
+                                            <input type="file" id="uploadSoundEffect" accept="audio/*"
+                                                style="display: none;"
+                                                onchange="handleSoundEffectUpload(event, 'soundEffectSelect')">
+                                            <button type="button" class="btn btn-outline-danger"
+                                                id="deleteSoundEffectBtn" title="Delete Selected Sound"
+                                                onclick="deleteSoundEffect('soundEffectSelect')" style="display: none;">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <label class="form-label small text-muted">Volume Mixing</label>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <i class="bi bi-volume-down text-muted"></i>
+                                            <input type="range" class="form-range flex-grow-1" id="soundEffectVolume"
+                                                min="0" max="100" value="30"
+                                                oninput="document.getElementById('soundEffectVolumeValue').textContent = this.value + '%'">
+                                            <span class="badge bg-primary" style="width: 45px"
+                                                id="soundEffectVolumeValue">30%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Music Selection -->
+                        <div class="col-lg-6">
+                            <div class="card h-100 shadow-sm border-0">
+                                <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="card-title text-uppercase text-muted small fw-bold mb-0">Track
+                                            Selection</h6>
+                                        <div class="badge bg-light text-dark border">
+                                            <span id="musicFilesCount">0 files</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <!-- Search & Filter -->
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-7">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light border-end-0"><i
+                                                        class="bi bi-search"></i></span>
+                                                <input type="text" class="form-control border-start-0 ps-0"
+                                                    id="createMusicSearch" placeholder="Search tracks..."
+                                                    onkeyup="filterMusicFiles()">
+                                            </div>
+                                        </div>
+                                        <div class="col-5">
+                                            <select class="form-select form-select-sm" id="createCategoryFilter"
+                                                onchange="filterMusicFiles()">
+                                                <option value="">All Categories</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Actions -->
+                                    <div class="d-flex gap-2 mb-2">
+                                        <button type="button" class="btn btn-xs btn-outline-primary flex-fill"
+                                            onclick="selectAllVisibleMusic()">
+                                            <i class="bi bi-check-all"></i> Select Visible
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary flex-fill"
+                                            onclick="deselectAllMusic()">
+                                            <i class="bi bi-x"></i> Clear Selection
+                                        </button>
+                                    </div>
+
+                                    <!-- File List -->
+                                    <div class="border rounded-3 flex-grow-1 bg-light p-2"
+                                        style="max-height: 400px; overflow-y: auto; min-height: 300px;"
+                                        id="musicFilesContainer">
+                                        <p class="text-muted text-center my-5">Loading music files...</p>
+                                    </div>
+
+                                    <div class="mt-3 text-center">
+                                        <a href="/admin/music-library" target="_blank"
+                                            class="text-decoration-none small text-muted">
+                                            <i class="bi bi-plus-circle"></i> Add more tracks in Music Library
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="createMusicPlaylist()">
-                    <i class="bi bi-plus-circle"></i> Create Playlist
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary px-4" onclick="createMusicPlaylist()">
+                    <i class="bi bi-save"></i> Create Playlist
                 </button>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <!-- Start Streaming Modal -->
@@ -254,37 +318,109 @@
             <div class="modal-body">
                 <form id="editMusicPlaylistForm">
                     <input type="hidden" id="editPlaylistId">
-                    <div class="row">
-                        <!-- Left Column: Playlist Info -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Playlist Name</label>
-                                <input type="text" class="form-control" id="editPlaylistName" required>
+                    <div class="row g-4">
+                        <!-- Left Column: Settings -->
+                        <div class="col-lg-6">
+                            <!-- Basic Info Card -->
+                            <div class="card mb-3 shadow-sm border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-uppercase text-muted small fw-bold mb-3">General Settings
+                                    </h6>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-medium">Playlist Name</label>
+                                        <input type="text" class="form-control" id="editPlaylistName" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-medium">Playback Mode</label>
+                                        <select class="form-select" id="editPlaylistMode">
+                                            <option value="sequence">Sequence (Play in order)</option>
+                                            <option value="random">Random (Shuffle)</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Playback Mode</label>
-                                <select class="form-select" id="editPlaylistMode">
-                                    <option value="sequence">Sequence (Play in order)</option>
-                                    <option value="random">Random (Shuffle)</option>
-                                </select>
-                            </div>
+                            <!-- Visuals & Audio Card -->
+                            <div class="card shadow-sm border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-uppercase text-muted small fw-bold mb-3">Visuals &
+                                        Ambiance</h6>
 
-                            <div class="mb-3">
-                                <label class="form-label">Video Background</label>
-                                <select class="form-select" id="editVideoBackground" required>
-                                    <option value="">-- Select Video Background --</option>
-                                </select>
+                                    <!-- Video Background -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-medium">Video Background</label>
+                                        <select class="form-select mb-1" id="editVideoBackground" required>
+                                            <option value="">-- Select Video Background --</option>
+                                        </select>
+                                    </div>
+
+                                    <hr class="text-muted opacity-25">
+
+                                    <!-- Sound Effect -->
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label fw-medium mb-0">Ambient Sound</label>
+                                            <span class="badge bg-secondary rounded-pill">Optional</span>
+                                        </div>
+
+                                        <div class="input-group mb-3">
+                                            <span class="input-group-text bg-white border-end-0"><i
+                                                    class="bi bi-soundwave"></i></span>
+                                            <select class="form-select border-start-0 ps-0" id="editSoundEffectSelect">
+                                                <option value="">-- No Sound Effect --</option>
+                                            </select>
+                                            <label class="btn btn-outline-secondary" for="uploadEditSoundEffect"
+                                                title="Upload New Sound">
+                                                <i class="bi bi-upload"></i>
+                                            </label>
+                                            <input type="file" id="uploadEditSoundEffect" accept="audio/*"
+                                                style="display: none;"
+                                                onchange="handleSoundEffectUpload(event, 'editSoundEffectSelect')">
+                                            <button type="button" class="btn btn-outline-danger"
+                                                id="deleteEditSoundEffectBtn" title="Delete Selected Sound"
+                                                onclick="deleteSoundEffect('editSoundEffectSelect')"
+                                                style="display: none;">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <label class="form-label small text-muted">Volume Mixing</label>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <i class="bi bi-volume-down text-muted"></i>
+                                            <input type="range" class="form-range flex-grow-1"
+                                                id="editSoundEffectVolume" min="0" max="100" value="30"
+                                                oninput="document.getElementById('editSoundEffectVolumeValue').textContent = this.value + '%'">
+                                            <span class="badge bg-primary" style="width: 45px"
+                                                id="editSoundEffectVolumeValue">30%</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: Music Files -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Music Files</label>
-                                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;"
-                                    id="editMusicFilesContainer">
-                                    <p class="text-muted text-center">Loading music files...</p>
+                        <!-- Right Column: Music Selection -->
+                        <div class="col-lg-6">
+                            <div class="card h-100 shadow-sm border-0">
+                                <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="card-title text-uppercase text-muted small fw-bold mb-0">Track
+                                            Selection</h6>
+                                        <div class="badge bg-light text-dark border">
+                                            <span id="editMusicFileCount">Select tracks</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="alert alert-light border small text-muted mb-2">
+                                        <i class="bi bi-info-circle"></i> Check/uncheck boxes to modify selection.
+                                    </div>
+
+                                    <!-- File List -->
+                                    <div class="border rounded-3 flex-grow-1 bg-light p-2"
+                                        style="max-height: 400px; overflow-y: auto; min-height: 300px;"
+                                        id="editMusicFilesContainer">
+                                        <p class="text-muted text-center my-5">Loading music files...</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -307,6 +443,7 @@
     let musicPlaylists = [];
     let musicFiles = [];
     let backgroundVideos = [];
+    let soundEffects = [];
     let streamKeys = [];
 
     // Load data on page load
@@ -314,6 +451,8 @@
         loadMusicPlaylists();
         loadMusicFiles();
         loadBackgroundVideos();
+
+        loadSoundEffects();
         loadStreamKeys();
     });
 
@@ -438,23 +577,29 @@
             return;
         }
 
-        container.innerHTML = musicFiles.map((file, index) => {
+        container.innerHTML = `<div class="list-group list-group-flush">` + musicFiles.map((file, index) => {
             const categoryBadge = file.category_name ?
-                `<span class="badge" style="background-color: ${file.category_color}; font-size: 0.65em; margin-left: 5px;">${file.category_name}</span>` : '';
+                `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
             const duration = file.duration ? formatDuration(file.duration) : '';
             const size = file.file_size || file.size;
             const path = file.file_path || file.path;
 
             return `
-                <div class="form-check music-file-item" data-category="${file.category_id || ''}" data-filename="${file.filename.toLowerCase()}">
-                    <input class="form-check-input music-file-checkbox" type="checkbox" value="${path}" id="music${index}">
-                    <label class="form-check-label" for="music${index}">
-                        ${file.filename} ${categoryBadge}
-                        <br><small class="text-muted">${duration ? duration + ' - ' : ''}${formatFileSize(size)}</small>
-                    </label>
-                </div>
+                <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2 border-0 rounded mb-1 ${index % 2 === 0 ? 'bg-white' : 'bg-light'}" style="cursor: pointer;">
+                    <input class="form-check-input music-file-checkbox flex-shrink-0 my-0" type="checkbox" value="${path}" id="music${index}" style="width: 1.2rem; height: 1.2rem;">
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex justify-content-between align-items-baseline">
+                            <span class="fw-medium text-truncate" title="${file.filename}">${file.filename}</span>
+                            ${categoryBadge}
+                        </div>
+                        <div class="small text-muted d-flex gap-2">
+                            <span><i class="bi bi-clock"></i> ${duration || '--:--'}</span>
+                            <span><i class="bi bi-hdd"></i> ${formatFileSize(size)}</span>
+                        </div>
+                    </div>
+                </label>
             `;
-        }).join('');
+        }).join('') + `</div>`;
 
         updateMusicCount();
     }
@@ -581,6 +726,118 @@
         }
     });
 
+    // Load Sound Effects
+    async function loadSoundEffects() {
+        try {
+            const response = await axios.get('/sound-effects/list');
+            soundEffects = response.data.files || [];
+            renderSoundEffects();
+        } catch (error) {
+            console.error('Error loading sound effects:', error);
+        }
+    }
+
+    // Render Sound Effects
+    function renderSoundEffects() {
+        const createSelect = document.getElementById('soundEffectSelect');
+        const editSelect = document.getElementById('editSoundEffectSelect');
+
+        const options = '<option value="">-- No Sound Effect --</option>' +
+            soundEffects.map(file => `
+                <option value="${file.path}">${file.filename} (${formatFileSize(file.size)})</option>
+            `).join('');
+
+        if (createSelect) createSelect.innerHTML = options;
+        if (editSelect) editSelect.innerHTML = options;
+    }
+
+    // Create Uploader
+    // Event listeners moved to inline onchange attribute for robustness
+    /*
+    document.addEventListener('DOMContentLoaded', function () {
+        const uploadCreate = document.getElementById('uploadSoundEffect');
+        const uploadEdit = document.getElementById('uploadEditSoundEffect');
+
+        if (uploadCreate) {
+            uploadCreate.addEventListener('change', (e) => handleSoundEffectUpload(e, 'soundEffectSelect'));
+        }
+        if (uploadEdit) {
+            uploadEdit.addEventListener('change', (e) => handleSoundEffectUpload(e, 'editSoundEffectSelect'));
+        }
+    });
+    */
+
+    async function handleSoundEffectUpload(e, selectId) {
+        console.log('--- HANDLE SOUND EFFECT UPLOAD STARTED ---');
+        console.log('Event:', e);
+        console.log('Select ID:', selectId);
+
+        const file = e.target.files[0];
+        console.log('Selected File:', file);
+
+        if (!file) {
+            console.error('No file selected! Return.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        console.log('FormData created. Appending file:', file.name);
+
+        try {
+            console.log('Sending POST request to /upload/sound-effect...');
+            showToast('Uploading sound effect...', 'info');
+
+            const response = await axios.post('/upload/sound-effect', formData);
+            console.log('Response received:', response);
+            console.log('Response status:', response.status);
+            console.log('Response data:', response.data);
+
+            if (response.data.success) {
+                showToast('Sound effect uploaded successfully!', 'success');
+                console.log('Upload success. Reloading list...');
+
+                // Reload list to ensure new file is in the options
+                await loadSoundEffects();
+                console.log('List reloaded.');
+
+                const uploadedPath = response.data.path;
+                console.log('Uploaded Path:', uploadedPath);
+
+                const select = document.getElementById(selectId);
+                console.log('Found Select Element:', select);
+
+                if (select && uploadedPath) {
+                    console.log('Attempting to select uploaded file...');
+                    // No need to manually create option as loadSoundEffects() already refreshed the list from server.
+                    // We just need to find it and select it.
+
+                    let option = select.querySelector(`option[value="${uploadedPath}"]`);
+                    console.log('Found Option after reload:', option);
+
+                    if (option) {
+                        select.value = uploadedPath;
+                        console.log('Select value set to:', select.value);
+                        select.dispatchEvent(new Event('change'));
+                    } else {
+                        console.warn('Option not found even after reload. This is unexpected.');
+                    }
+                } else {
+                    console.error('FAILED TO SELECT: Select element not found or path missing.');
+                }
+            } else {
+                console.error('Upload reported failure:', response.data);
+                showToast('Upload failed: ' + (response.data.message || 'Unknown error'), 'danger');
+            }
+
+            e.target.value = '';
+        } catch (error) {
+            console.error('--- UPLOAD ERROR ---', error);
+            console.error('Error Details:', error.response?.data);
+            showToast(error.response?.data?.detail || 'Failed to upload sound effect', 'danger');
+        }
+    }
+
     // Upload music files
     document.getElementById('uploadMusic').addEventListener('change', async function (e) {
         const files = e.target.files;
@@ -607,7 +864,10 @@
     async function createMusicPlaylist() {
         const name = document.getElementById('playlistName').value;
         const mode = document.getElementById('playlistMode').value;
+
         const videoBackground = document.getElementById('videoBackground').value;
+        const soundEffectPath = document.getElementById('soundEffectSelect').value || null;
+        const soundEffectVolume = document.getElementById('soundEffectVolume').value / 100;
 
         // Get selected music files
         const checkboxes = document.querySelectorAll('.music-file-checkbox:checked');
@@ -633,7 +893,10 @@
                 name: name,
                 video_background_path: videoBackground,
                 music_files: musicFiles,
-                mode: mode
+
+                mode: mode,
+                sound_effect_path: soundEffectPath,
+                sound_effect_volume: soundEffectVolume
             });
 
             showToast('Music playlist created successfully!', 'success');
@@ -794,6 +1057,20 @@
             document.getElementById('editPlaylistMode').value = playlist.mode;
 
             // Populate video background dropdown
+            document.getElementById('editPlaylistId').value = playlist.id;
+            document.getElementById('editPlaylistName').value = playlist.name;
+            document.getElementById('editPlaylistMode').value = playlist.mode;
+
+            // Populate sound effect
+            document.getElementById('editSoundEffectSelect').value = playlist.sound_effect_path || "";
+            const vol = Math.round((playlist.sound_effect_volume || 0.3) * 100);
+            document.getElementById('editSoundEffectVolume').value = vol;
+            document.getElementById('editSoundEffectVolumeValue').textContent = vol + '%';
+
+            // Update delete button state explicitly
+            updateDeleteButtonState('editSoundEffectSelect', 'deleteEditSoundEffectBtn');
+
+            // Populate video background dropdown
             const bgSelect = document.getElementById('editVideoBackground');
             if (backgroundVideos.length === 0) {
                 bgSelect.innerHTML = '<option value="">No backgrounds available</option>';
@@ -811,20 +1088,31 @@
             if (musicFiles.length === 0) {
                 container.innerHTML = '<p class="text-muted text-center">No music files available</p>';
             } else {
-                container.innerHTML = musicFiles.map((file, index) => {
+                container.innerHTML = `<div class="list-group list-group-flush">` + musicFiles.map((file, index) => {
                     const path = file.file_path || file.path;
                     const size = file.file_size || file.size;
                     const isSelected = playlist.music_files.includes(path);
+                    const categoryBadge = file.category_name ?
+                        `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
+                    const duration = file.duration ? formatDuration(file.duration) : '';
+
                     return `
-                        <div class="form-check">
-                            <input class="form-check-input edit-music-file-checkbox" type="checkbox" 
-                                   value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''}>
-                            <label class="form-check-label" for="editMusic${index}">
-                                ${file.filename} <small class="text-muted">(${formatFileSize(size)})</small>
-                            </label>
-                        </div>
+                        <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2 border-0 rounded mb-1 ${index % 2 === 0 ? 'bg-white' : 'bg-light'}" style="cursor: pointer;">
+                            <input class="form-check-input edit-music-file-checkbox flex-shrink-0 my-0" type="checkbox" 
+                                   value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''} style="width: 1.2rem; height: 1.2rem;">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex justify-content-between align-items-baseline">
+                                    <span class="fw-medium text-truncate" title="${file.filename}">${file.filename}</span>
+                                    ${categoryBadge}
+                                </div>
+                                <div class="small text-muted d-flex gap-2">
+                                    <span><i class="bi bi-clock"></i> ${duration || '--:--'}</span>
+                                    <span><i class="bi bi-hdd"></i> ${formatFileSize(size)}</span>
+                                </div>
+                            </div>
+                        </label>
                     `;
-                }).join('');
+                }).join('') + `</div>`;
             }
 
             // Show modal
@@ -841,6 +1129,8 @@
         const name = document.getElementById('editPlaylistName').value;
         const mode = document.getElementById('editPlaylistMode').value;
         const videoBackground = document.getElementById('editVideoBackground').value;
+        const soundEffectPath = document.getElementById('editSoundEffectSelect').value || null;
+        const soundEffectVolume = document.getElementById('editSoundEffectVolume').value / 100;
 
         // Get selected music files
         const checkboxes = document.querySelectorAll('.edit-music-file-checkbox:checked');
@@ -866,7 +1156,9 @@
                 name: name,
                 video_background_path: videoBackground,
                 music_files: musicFiles,
-                mode: mode
+                mode: mode,
+                sound_effect_path: soundEffectPath,
+                sound_effect_volume: soundEffectVolume
             });
 
             showToast('Music playlist updated successfully!', 'success');
@@ -896,7 +1188,9 @@
                 name: original.name + ' (Copy)',
                 video_background_path: original.video_background_path,
                 music_files: original.music_files,
-                mode: original.mode
+                mode: original.mode,
+                sound_effect_path: original.sound_effect_path,
+                sound_effect_volume: original.sound_effect_volume
             });
 
             showToast('Playlist cloned successfully!', 'success');
@@ -917,5 +1211,67 @@
         const checkboxes = document.querySelectorAll('.music-file-checkbox');
         checkboxes.forEach(cb => cb.checked = false);
     }
+
+    // --- Delete Sound Effect Logic ---
+    async function deleteSoundEffect(selectId) {
+        const select = document.getElementById(selectId);
+        const filePath = select.value;
+
+        if (!filePath) {
+            showToast('Please select a sound effect to delete', 'warning');
+            return;
+        }
+
+        // Get filename from path for display
+        const filename = filePath.split(/[/\\]/).pop();
+
+        if (!confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/upload/sound-effects/${filename}`);
+            showToast('Sound effect deleted successfully', 'success');
+
+            // Reload list
+            await loadSoundEffects();
+
+            // Re-check button state (it will be hidden if selection clears to empty)
+            updateDeleteButtonState(selectId, selectId === 'soundEffectSelect' ? 'deleteSoundEffectBtn' : 'deleteEditSoundEffectBtn');
+
+        } catch (error) {
+            console.error('Delete error:', error);
+            showToast(error.response?.data?.detail || 'Failed to delete sound effect', 'danger');
+        }
+    }
+
+    function updateDeleteButtonState(selectId, btnId) {
+        const select = document.getElementById(selectId);
+        const btn = document.getElementById(btnId);
+        if (select && btn) {
+            // Show button only if a value is selected (and it's not empty string)
+            btn.style.display = select.value ? 'inline-block' : 'none';
+        }
+    }
+
+    // Attach listeners for delete button visibility
+    document.addEventListener('DOMContentLoaded', () => {
+        const createSelect = document.getElementById('soundEffectSelect');
+        const editSelect = document.getElementById('editSoundEffectSelect');
+
+        if (createSelect) {
+            createSelect.addEventListener('change', () => updateDeleteButtonState('soundEffectSelect', 'deleteSoundEffectBtn'));
+            // Initial check
+            updateDeleteButtonState('soundEffectSelect', 'deleteSoundEffectBtn');
+        }
+        if (editSelect) {
+            editSelect.addEventListener('change', () => updateDeleteButtonState('editSoundEffectSelect', 'deleteEditSoundEffectBtn'));
+            // Initial check
+            updateDeleteButtonState('editSoundEffectSelect', 'deleteEditSoundEffectBtn');
+        }
+
+        // Also hook into loadSoundEffects to update state after list reload? 
+        // We can just rely on the user selecting something.
+    });
 </script>
 {% endblock %}

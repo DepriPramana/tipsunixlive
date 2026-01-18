@@ -3,7 +3,7 @@ Router untuk mengelola music playlist dengan video background.
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from app.database import SessionLocal
 from app.services.music_playlist_service import MusicPlaylistService
@@ -31,14 +31,18 @@ class MusicPlaylistCreate(BaseModel):
     video_background_path: str
     music_files: List[str]
     mode: str = "sequence"  # 'sequence' atau 'random'
+    sound_effect_path: Optional[str] = None
+    sound_effect_volume: Optional[float] = 0.3
 
 
 class MusicPlaylistUpdate(BaseModel):
     """Schema untuk update music playlist"""
-    name: str = None
-    video_background_path: str = None
-    music_files: List[str] = None
-    mode: str = None
+    name: Optional[str] = None
+    video_background_path: Optional[str] = None
+    music_files: Optional[List[str]] = None
+    mode: Optional[str] = None
+    sound_effect_path: Optional[str] = None
+    sound_effect_volume: Optional[float] = None
 
 
 class MusicPlaylistResponse(BaseModel):
@@ -48,6 +52,8 @@ class MusicPlaylistResponse(BaseModel):
     video_background_path: str
     music_files: List[str]
     mode: str
+    sound_effect_path: Optional[str] = None
+    sound_effect_volume: float
     music_count: int
     created_at: str
     
@@ -67,10 +73,11 @@ def create_music_playlist(playlist: MusicPlaylistCreate, db: Session = Depends(g
         "video_background_path": "videos/backgrounds/lofi_background.mp4",
         "music_files": [
             "videos/music/song1.mp3",
-            "videos/music/song2.mp3",
-            "videos/music/song3.mp3"
+            "videos/music/song2.mp3"
         ],
-        "mode": "sequence"
+        "mode": "sequence",
+        "sound_effect_path": "videos/sound_effects/rain.mp3",
+        "sound_effect_volume": 0.3
     }
     ```
     """
@@ -85,7 +92,9 @@ def create_music_playlist(playlist: MusicPlaylistCreate, db: Session = Depends(g
             name=playlist.name,
             video_background_path=playlist.video_background_path,
             music_files=playlist.music_files,
-            mode=playlist.mode
+            mode=playlist.mode,
+            sound_effect_path=playlist.sound_effect_path,
+            sound_effect_volume=playlist.sound_effect_volume
         )
         return new_playlist.to_dict()
     except FileNotFoundError as e:
