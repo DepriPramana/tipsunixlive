@@ -248,6 +248,23 @@ async def media_page(
     )
 
 
+@router.get("/music-playlists", response_class=HTMLResponse)
+async def music_playlists_page(request: Request, db: Session = Depends(get_db)):
+    """Music Playlists Management Page"""
+    from app.models.stream_key import StreamKey
+    
+    # Get active stream keys for streaming
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    
+    return templates.TemplateResponse(
+        "music_playlists.html",
+        {
+            "request": request,
+            "stream_keys": stream_keys
+        }
+    )
+
+
 @router.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request, db: Session = Depends(get_db)):
     """Halaman live history"""
@@ -262,6 +279,14 @@ async def history_page(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "history": history,
         "stream_keys": stream_keys
+    })
+
+
+@router.get("/music-library", response_class=HTMLResponse)
+async def music_library_page(request: Request):
+    """Music Library Management Page"""
+    return templates.TemplateResponse("music_library.html", {
+        "request": request
     })
 
 

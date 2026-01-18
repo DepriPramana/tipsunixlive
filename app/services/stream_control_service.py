@@ -483,30 +483,66 @@ async def delayed_restart(session_id: int, delay: int):
             
         # Get video paths
         video_paths = []
-        if session.mode == 'single':
-            video = db.query(Video).filter(Video.id == session.video_id).first()
-            if not video: raise Exception("Video not found")
-            video_paths = [video.path]
-        else:
-            playlist = db.query(Playlist).filter(Playlist.id == session.playlist_id).first()
-            if not playlist: raise Exception("Playlist not found")
-            playlist_service = PlaylistService(db)
-            video_paths = playlist_service.get_video_paths(
-                session.playlist_id, 
-                shuffle=(playlist.mode == 'random')
+        # Prepare for restart
+        process = None
+        
+        if session.mode == 'music_playlist':
+            # Music Playlist Recovery
+            from app.models.music_playlist import MusicPlaylist
+            from app.services.music_playlist_service import MusicPlaylistService
+            
+            if not session.music_playlist_id:
+                raise Exception("Music playlist ID missing in session")
+                
+            music_playlist = db.query(MusicPlaylist).filter(MusicPlaylist.id == session.music_playlist_id).first()
+            if not music_playlist: raise Exception("Music Playlist not found")
+            
+            music_playlist_service = MusicPlaylistService(db)
+            music_files = music_playlist_service.get_music_files(
+                session.music_playlist_id,
+                shuffle=(music_playlist.mode == "random")
             )
             
-        if not video_paths:
-            raise Exception("No videos found for restart")
+            if not music_files:
+                raise Exception("No music files found for restart")
+                
+            logger.info(f"Restarting music playlist session {session.id} with {len(music_files)} songs")
             
-        # Start FFmpeg
-        process = ffmpeg_service.start_stream(
-            session_id=session.id,
-            video_paths=video_paths,
-            stream_key=stream_key.get_full_key(),
-            loop=True, # Assuming loop for 24/7 recovery
-            mode=session.mode
-        )
+            process = ffmpeg_service.start_music_playlist_stream(
+                session_id=session.id,
+                video_background_path=music_playlist.video_background_path,
+                music_files=music_files,
+                stream_key=stream_key.get_full_key(),
+                audio_bitrate="128k"
+            )
+            
+        else:
+            # Video / Video Playlist Recovery
+            video_paths = []
+            if session.mode == 'single':
+                video = db.query(Video).filter(Video.id == session.video_id).first()
+                if not video: raise Exception("Video not found")
+                video_paths = [video.path]
+            else:
+                playlist = db.query(Playlist).filter(Playlist.id == session.playlist_id).first()
+                if not playlist: raise Exception("Playlist not found")
+                playlist_service = PlaylistService(db)
+                video_paths = playlist_service.get_video_paths(
+                    session.playlist_id, 
+                    shuffle=(playlist.mode == 'random')
+                )
+                
+            if not video_paths:
+                raise Exception("No videos found for restart")
+                
+            # Start FFmpeg
+            process = ffmpeg_service.start_stream(
+                session_id=session.id,
+                video_paths=video_paths,
+                stream_key=stream_key.get_full_key(),
+                loop=True
+            )
+
         
         if process:
             session.ffmpeg_pid = process.pid

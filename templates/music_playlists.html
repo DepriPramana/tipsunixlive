@@ -1,0 +1,921 @@
+{% extends "base.html" %}
+
+{% block title %}Music Playlists - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-music-note-list"></i> Music Playlists</h2>
+        <p class="text-muted">Manage music playlists with video backgrounds for 24/7 streaming</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMusicPlaylistModal">
+        <i class="bi bi-plus-circle"></i> Create Music Playlist
+    </button>
+</div>
+
+<!-- Music Playlists List -->
+<div class="row g-4" id="playlistsContainer">
+    <!-- Playlists will be loaded here via JavaScript -->
+</div>
+
+<!-- Create Music Playlist Modal -->
+<div class="modal fade" id="createMusicPlaylistModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Music Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createMusicPlaylistForm">
+                    <div class="row">
+                        <!-- Left Column: Playlist Info -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Playlist Name</label>
+                                <input type="text" class="form-control" id="playlistName" required>
+                                <div class="form-text">e.g., "Lofi Hip Hop Radio 24/7"</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Playback Mode</label>
+                                <select class="form-select" id="playlistMode">
+                                    <option value="sequence">Sequence (Play in order)</option>
+                                    <option value="random">Random (Shuffle)</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Video Background</label>
+                                <select class="form-select" id="videoBackground" required>
+                                    <option value="">-- Select Video Background --</option>
+                                </select>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> Video should be pre-encoded (H.264, 1080p,
+                                    3000-5000kbps) for optimal CPU usage
+                                </div>
+                            </div>
+
+                            <!-- Link to Media Library -->
+                            <div class="alert alert-info py-2">
+                                <small>
+                                    <i class="bi bi-folder-symlink"></i> Need to upload video backgrounds?
+                                    <a href="/admin/media" target="_blank">Go to Media Library</a>
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Music Files -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Music Files</label>
+
+                                <!-- Search and Filter -->
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <input type="text" class="form-control form-control-sm" id="createMusicSearch"
+                                            placeholder="Search..." onkeyup="filterMusicFiles()">
+                                    </div>
+                                    <div class="col-6">
+                                        <select class="form-select form-select-sm" id="createCategoryFilter"
+                                            onchange="filterMusicFiles()">
+                                            <option value="">All Categories</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Selection Buttons -->
+                                <div class="mb-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                        onclick="selectAllVisibleMusic()">
+                                        <i class="bi bi-check-all"></i> Select Visible
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        onclick="deselectAllMusic()">
+                                        <i class="bi bi-x"></i> Clear
+                                    </button>
+                                </div>
+
+                                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;"
+                                    id="musicFilesContainer">
+                                    <p class="text-muted text-center">Loading music files...</p>
+                                </div>
+                                <small class="text-muted" id="musicFilesCount"></small>
+                            </div>
+
+                            <!-- Link to Music Library -->
+                            <div class="alert alert-info py-2">
+                                <small>
+                                    <i class="bi bi-music-note-beamed"></i> Need to upload music files?
+                                    <a href="/admin/music-library" target="_blank">Go to Music Library</a>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createMusicPlaylist()">
+                    <i class="bi bi-plus-circle"></i> Create Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start Streaming Modal -->
+<div class="modal fade" id="startStreamModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start Music Playlist Stream</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startStreamForm">
+                    <input type="hidden" id="streamPlaylistId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Playlist</label>
+                        <input type="text" class="form-control" id="streamPlaylistName" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Stream Key</label>
+                        <select class="form-select" id="streamKeySelect" required>
+                            <option value="">-- Select Stream Key --</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="streamDuration">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-cpu"></i> <strong>Optimized Streaming:</strong>
+                        This will use minimal CPU (10-20%) thanks to pre-encoded video background.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="startMusicStream()">
+                    <i class="bi bi-broadcast"></i> Start Stream
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Stream Modal -->
+<div class="modal fade" id="scheduleStreamModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Schedule Music Playlist Stream</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleStreamForm">
+                    <input type="hidden" id="schedulePlaylistId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Playlist</label>
+                        <input type="text" class="form-control" id="schedulePlaylistName" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Stream Key</label>
+                        <select class="form-select" id="scheduleStreamKeySelect" required>
+                            <option value="">-- Select Stream Key --</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Scheduled Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduledTime" required>
+                        <div class="form-text">Select when to start the stream</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stream Duration</label>
+                        <select class="form-select" id="scheduleDuration">
+                            <option value="0">24/7 (Unlimited)</option>
+                            <option value="1">1 Hour</option>
+                            <option value="3">3 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="12">12 Hours</option>
+                            <option value="24">24 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Recurrence</label>
+                        <select class="form-select" id="scheduleRecurrence">
+                            <option value="none">No Repeat</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                        <div class="form-text">Automatically repeat this schedule</div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> The stream will start automatically at the scheduled time.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="scheduleMusicStream()">
+                    <i class="bi bi-calendar-check"></i> Schedule Stream
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Music Playlist Modal -->
+<div class="modal fade" id="editMusicPlaylistModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Music Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editMusicPlaylistForm">
+                    <input type="hidden" id="editPlaylistId">
+                    <div class="row">
+                        <!-- Left Column: Playlist Info -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Playlist Name</label>
+                                <input type="text" class="form-control" id="editPlaylistName" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Playback Mode</label>
+                                <select class="form-select" id="editPlaylistMode">
+                                    <option value="sequence">Sequence (Play in order)</option>
+                                    <option value="random">Random (Shuffle)</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Video Background</label>
+                                <select class="form-select" id="editVideoBackground" required>
+                                    <option value="">-- Select Video Background --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Music Files -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Music Files</label>
+                                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;"
+                                    id="editMusicFilesContainer">
+                                    <p class="text-muted text-center">Loading music files...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateMusicPlaylist()">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let musicPlaylists = [];
+    let musicFiles = [];
+    let backgroundVideos = [];
+    let streamKeys = [];
+
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        loadMusicPlaylists();
+        loadMusicFiles();
+        loadBackgroundVideos();
+        loadStreamKeys();
+    });
+
+    // Load music playlists
+    async function loadMusicPlaylists() {
+        try {
+            const response = await axios.get('/music-playlists/');
+            musicPlaylists = response.data;
+            renderPlaylists();
+        } catch (error) {
+            console.error('Error loading music playlists:', error);
+            showToast('Failed to load music playlists', 'danger');
+        }
+    }
+
+    // Render playlists
+    function renderPlaylists() {
+        const container = document.getElementById('playlistsContainer');
+
+        if (musicPlaylists.length === 0) {
+            container.innerHTML = `
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                            <p class="text-muted mt-3">No music playlists found</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMusicPlaylistModal">
+                                <i class="bi bi-plus-circle"></i> Create Your First Music Playlist
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = musicPlaylists.map(playlist => `
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header bg-primary bg-opacity-10">
+                        <h5 class="mb-0"><i class="bi bi-music-note-list"></i> ${playlist.name}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <span class="badge bg-info me-2">
+                                <i class="bi bi-music-note"></i> ${playlist.music_count} songs
+                            </span>
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-shuffle"></i> ${playlist.mode}
+                            </span>
+                        </div>
+
+                        <p class="text-muted small mb-3">
+                            <i class="bi bi-film"></i> Background: ${getFilename(playlist.video_background_path)}
+                        </p>
+
+                        <p class="text-muted small mb-3">
+                            Created: ${new Date(playlist.created_at).toLocaleString()}
+                        </p>
+
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-sm btn-success" onclick="openStartStreamModal(${playlist.id}, '${playlist.name}')">
+                                <i class="bi bi-broadcast"></i> Start Live
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="openScheduleStreamModal(${playlist.id}, '${playlist.name}')">
+                                <i class="bi bi-calendar-event"></i> Schedule
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="openEditPlaylistModal(${playlist.id})">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="cloneMusicPlaylist(${playlist.id}, '${playlist.name}')">
+                                <i class="bi bi-files"></i> Clone
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteMusicPlaylist(${playlist.id}, '${playlist.name}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Load music files
+    async function loadMusicFiles() {
+        try {
+            // Try Music Library API first
+            const response = await axios.get('/music-files/', { params: { limit: 1000 } });
+            musicFiles = response.data.music_files || [];
+
+            // Load categories
+            const catResponse = await axios.get('/categories/');
+            const categories = catResponse.data || [];
+
+            // Populate category filter
+            const categoryFilter = document.getElementById('createCategoryFilter');
+            if (categoryFilter) {
+                categoryFilter.innerHTML = '<option value="">All Categories</option>' +
+                    categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+            }
+
+            renderMusicFiles();
+        } catch (error) {
+            console.error('Error loading from Music Library, trying fallback:', error);
+            // Fallback to old method
+            try {
+                const response = await axios.get('/music/list');
+                musicFiles = response.data.files || [];
+                renderMusicFiles();
+            } catch (fallbackError) {
+                console.error('Fallback also failed:', fallbackError);
+            }
+        }
+    }
+
+    // Render music files
+    function renderMusicFiles() {
+        const container = document.getElementById('musicFilesContainer');
+
+        if (musicFiles.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No music files available.</p>';
+            return;
+        }
+
+        container.innerHTML = musicFiles.map((file, index) => {
+            const categoryBadge = file.category_name ?
+                `<span class="badge" style="background-color: ${file.category_color}; font-size: 0.65em; margin-left: 5px;">${file.category_name}</span>` : '';
+            const duration = file.duration ? formatDuration(file.duration) : '';
+            const size = file.file_size || file.size;
+            const path = file.file_path || file.path;
+
+            return `
+                <div class="form-check music-file-item" data-category="${file.category_id || ''}" data-filename="${file.filename.toLowerCase()}">
+                    <input class="form-check-input music-file-checkbox" type="checkbox" value="${path}" id="music${index}">
+                    <label class="form-check-label" for="music${index}">
+                        ${file.filename} ${categoryBadge}
+                        <br><small class="text-muted">${duration ? duration + ' - ' : ''}${formatFileSize(size)}</small>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        updateMusicCount();
+    }
+
+    // Update music count
+    function updateMusicCount() {
+        const total = musicFiles.length;
+        const visible = document.querySelectorAll('.music-file-item:not([style*="display: none"])').length;
+        const countEl = document.getElementById('musicFilesCount');
+        if (countEl) {
+            countEl.textContent = visible < total ? `Showing ${visible} of ${total} files` : `${total} files`;
+        }
+    }
+
+    // Filter music files
+    function filterMusicFiles() {
+        const searchTerm = document.getElementById('createMusicSearch')?.value.toLowerCase() || '';
+        const categoryId = document.getElementById('createCategoryFilter')?.value || '';
+        const items = document.querySelectorAll('.music-file-item');
+
+        items.forEach(item => {
+            const filename = item.getAttribute('data-filename');
+            const itemCategory = item.getAttribute('data-category');
+
+            const matchesSearch = !searchTerm || filename.includes(searchTerm);
+            const matchesCategory = !categoryId || itemCategory === categoryId;
+
+            item.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+        });
+
+        updateMusicCount();
+    }
+
+    // Select all visible music
+    function selectAllVisibleMusic() {
+        document.querySelectorAll('.music-file-item').forEach(item => {
+            if (item.style.display !== 'none') {
+                const checkbox = item.querySelector('.music-file-checkbox');
+                if (checkbox) checkbox.checked = true;
+            }
+        });
+    }
+
+    // Format duration
+    function formatDuration(seconds) {
+        if (!seconds) return '';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Load background videos
+    async function loadBackgroundVideos() {
+        try {
+            const response = await axios.get('/backgrounds/list');
+            backgroundVideos = response.data.files || [];
+            renderBackgroundVideos();
+        } catch (error) {
+            console.error('Error loading background videos:', error);
+        }
+    }
+
+    // Render background videos
+    function renderBackgroundVideos() {
+        const select = document.getElementById('videoBackground');
+
+        if (backgroundVideos.length === 0) {
+            select.innerHTML = '<option value="">No backgrounds available - upload one first</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Video Background --</option>' +
+            backgroundVideos.map(file => `
+                <option value="${file.path}">${file.filename} (${formatFileSize(file.size)})</option>
+            `).join('');
+    }
+
+    // Load stream keys
+    async function loadStreamKeys() {
+        try {
+            const response = await axios.get('/dashboard/stream-keys/api');
+            streamKeys = response.data;
+            console.log('Stream keys loaded:', streamKeys);
+            renderStreamKeys();
+        } catch (error) {
+            console.error('Error loading stream keys:', error);
+            // Don't show toast - stream keys are optional
+            streamKeys = [];
+            renderStreamKeys();
+        }
+    }
+
+    // Render stream keys
+    function renderStreamKeys() {
+        const select = document.getElementById('streamKeySelect');
+
+        if (streamKeys.length === 0) {
+            select.innerHTML = '<option value="">No stream keys available</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">-- Select Stream Key --</option>' +
+            streamKeys.map(key => `
+                <option value="${key.id}">${key.name}</option>
+            `).join('');
+    }
+
+    // Upload background video
+    document.getElementById('uploadBackground').addEventListener('change', async function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            showToast('Uploading background video...', 'info');
+            await axios.post('/upload/background', formData);
+            showToast('Background video uploaded successfully!', 'success');
+            loadBackgroundVideos();
+            e.target.value = '';
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to upload background video', 'danger');
+        }
+    });
+
+    // Upload music files
+    document.getElementById('uploadMusic').addEventListener('change', async function (e) {
+        const files = e.target.files;
+        if (!files.length) return;
+
+        for (let file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                showToast(`Uploading ${file.name}...`, 'info');
+                await axios.post('/upload/music', formData);
+                showToast(`${file.name} uploaded successfully!`, 'success');
+            } catch (error) {
+                showToast(error.response?.data?.detail || `Failed to upload ${file.name}`, 'danger');
+            }
+        }
+
+        loadMusicFiles();
+        e.target.value = '';
+    });
+
+    // Create music playlist
+    async function createMusicPlaylist() {
+        const name = document.getElementById('playlistName').value;
+        const mode = document.getElementById('playlistMode').value;
+        const videoBackground = document.getElementById('videoBackground').value;
+
+        // Get selected music files
+        const checkboxes = document.querySelectorAll('.music-file-checkbox:checked');
+        const musicFiles = Array.from(checkboxes).map(cb => cb.value);
+
+        if (!name) {
+            showToast('Please enter playlist name', 'danger');
+            return;
+        }
+
+        if (!videoBackground) {
+            showToast('Please select a video background', 'danger');
+            return;
+        }
+
+        if (musicFiles.length === 0) {
+            showToast('Please select at least one music file', 'danger');
+            return;
+        }
+
+        try {
+            await axios.post('/music-playlists/', {
+                name: name,
+                video_background_path: videoBackground,
+                music_files: musicFiles,
+                mode: mode
+            });
+
+            showToast('Music playlist created successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('createMusicPlaylistModal')).hide();
+            loadMusicPlaylists();
+
+            // Reset form
+            document.getElementById('createMusicPlaylistForm').reset();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to create music playlist', 'danger');
+        }
+    }
+
+    // Open start stream modal
+    function openStartStreamModal(playlistId, playlistName) {
+        document.getElementById('streamPlaylistId').value = playlistId;
+        document.getElementById('streamPlaylistName').value = playlistName;
+        new bootstrap.Modal(document.getElementById('startStreamModal')).show();
+    }
+
+    // Start music stream
+    async function startMusicStream() {
+        const playlistId = document.getElementById('streamPlaylistId').value;
+        const streamKeyId = document.getElementById('streamKeySelect').value;
+        const duration = document.getElementById('streamDuration').value;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
+
+        try {
+            // TODO: Create endpoint to start music playlist stream
+            showToast('Starting music playlist stream...', 'info');
+
+            // This will need a new endpoint in live.py router
+            await axios.post('/live/music-playlist', {
+                music_playlist_id: parseInt(playlistId),
+                stream_key_id: parseInt(streamKeyId),
+                max_duration_hours: parseInt(duration)
+            });
+
+            showToast('Music playlist stream started successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('startStreamModal')).hide();
+
+            setTimeout(() => window.location.href = '/dashboard/monitoring', 1000);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to start stream', 'danger');
+        }
+    }
+
+    // Delete music playlist
+    async function deleteMusicPlaylist(playlistId, name) {
+        if (!confirm(`Delete music playlist "${name}"?`)) return;
+
+        try {
+            await axios.delete(`/music-playlists/${playlistId}`);
+            showToast('Music playlist deleted!', 'success');
+            loadMusicPlaylists();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to delete music playlist', 'danger');
+        }
+    }
+
+
+    // Clone music playlist
+    async function cloneMusicPlaylist(playlistId, name) {
+        try {
+            const response = await axios.get(`/music-playlists/${playlistId}`);
+            const playlist = response.data;
+
+            await axios.post('/music-playlists/', {
+                name: `${playlist.name} (Copy)`,
+                video_background_path: playlist.video_background_path,
+                music_files: playlist.music_files,
+                mode: playlist.mode
+            });
+
+            showToast('Music playlist cloned successfully!', 'success');
+            loadMusicPlaylists();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to clone music playlist', 'danger');
+        }
+    }
+
+    // Open schedule stream modal
+    function openScheduleStreamModal(playlistId, playlistName) {
+        document.getElementById('schedulePlaylistId').value = playlistId;
+        document.getElementById('schedulePlaylistName').value = playlistName;
+
+        // Populate stream keys in schedule modal
+        const select = document.getElementById('scheduleStreamKeySelect');
+        if (streamKeys.length === 0) {
+            select.innerHTML = '<option value="">No stream keys available</option>';
+        } else {
+            select.innerHTML = '<option value="">-- Select Stream Key --</option>' +
+                streamKeys.map(key => `
+                    <option value="${key.id}">${key.name}</option>
+                `).join('');
+        }
+
+        // Set minimum datetime to now
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('scheduledTime').min = now.toISOString().slice(0, 16);
+
+        new bootstrap.Modal(document.getElementById('scheduleStreamModal')).show();
+    }
+
+    // Schedule music stream
+    async function scheduleMusicStream() {
+        const playlistId = document.getElementById('schedulePlaylistId').value;
+        const streamKeyId = document.getElementById('scheduleStreamKeySelect').value;
+        const scheduledTime = document.getElementById('scheduledTime').value;
+        const duration = document.getElementById('scheduleDuration').value;
+        const recurrence = document.getElementById('scheduleRecurrence').value;
+
+        if (!streamKeyId) {
+            showToast('Please select a stream key', 'danger');
+            return;
+        }
+
+        if (!scheduledTime) {
+            showToast('Please select scheduled date & time', 'danger');
+            return;
+        }
+
+        try {
+            showToast('Scheduling music playlist stream...', 'info');
+
+            await axios.post('/live/schedule-music-playlist', {
+                music_playlist_id: parseInt(playlistId),
+                stream_key_id: parseInt(streamKeyId),
+                scheduled_time: scheduledTime,
+                max_duration_hours: parseInt(duration),
+                recurrence: recurrence
+            });
+
+            showToast('Music playlist stream scheduled successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('scheduleStreamModal')).hide();
+
+            setTimeout(() => window.location.href = '/admin/scheduler', 1000);
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to schedule stream', 'danger');
+        }
+    }
+
+    // Open edit playlist modal
+    async function openEditPlaylistModal(playlistId) {
+        try {
+            // Get playlist data
+            const response = await axios.get(`/music-playlists/${playlistId}`);
+            const playlist = response.data;
+
+            // Populate form
+            document.getElementById('editPlaylistId').value = playlist.id;
+            document.getElementById('editPlaylistName').value = playlist.name;
+            document.getElementById('editPlaylistMode').value = playlist.mode;
+
+            // Populate video background dropdown
+            const bgSelect = document.getElementById('editVideoBackground');
+            if (backgroundVideos.length === 0) {
+                bgSelect.innerHTML = '<option value="">No backgrounds available</option>';
+            } else {
+                bgSelect.innerHTML = '<option value="">-- Select Video Background --</option>' +
+                    backgroundVideos.map(file => `
+                        <option value="${file.path}" ${file.path === playlist.video_background_path ? 'selected' : ''}>
+                            ${file.filename} (${formatFileSize(file.size)})
+                        </option>
+                    `).join('');
+            }
+
+            // Populate music files with current selection
+            const container = document.getElementById('editMusicFilesContainer');
+            if (musicFiles.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No music files available</p>';
+            } else {
+                container.innerHTML = musicFiles.map((file, index) => {
+                    const path = file.file_path || file.path;
+                    const size = file.file_size || file.size;
+                    const isSelected = playlist.music_files.includes(path);
+                    return `
+                        <div class="form-check">
+                            <input class="form-check-input edit-music-file-checkbox" type="checkbox" 
+                                   value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''}>
+                            <label class="form-check-label" for="editMusic${index}">
+                                ${file.filename} <small class="text-muted">(${formatFileSize(size)})</small>
+                            </label>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Show modal
+            new bootstrap.Modal(document.getElementById('editMusicPlaylistModal')).show();
+        } catch (error) {
+            console.error('Error loading playlist:', error);
+            showToast(error.response?.data?.detail || 'Failed to load playlist data', 'danger');
+        }
+    }
+
+    // Update music playlist
+    async function updateMusicPlaylist() {
+        const playlistId = document.getElementById('editPlaylistId').value;
+        const name = document.getElementById('editPlaylistName').value;
+        const mode = document.getElementById('editPlaylistMode').value;
+        const videoBackground = document.getElementById('editVideoBackground').value;
+
+        // Get selected music files
+        const checkboxes = document.querySelectorAll('.edit-music-file-checkbox:checked');
+        const musicFiles = Array.from(checkboxes).map(cb => cb.value);
+
+        if (!name) {
+            showToast('Please enter playlist name', 'danger');
+            return;
+        }
+
+        if (!videoBackground) {
+            showToast('Please select a video background', 'danger');
+            return;
+        }
+
+        if (musicFiles.length === 0) {
+            showToast('Please select at least one music file', 'danger');
+            return;
+        }
+
+        try {
+            await axios.put(`/music-playlists/${playlistId}`, {
+                name: name,
+                video_background_path: videoBackground,
+                music_files: musicFiles,
+                mode: mode
+            });
+
+            showToast('Music playlist updated successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editMusicPlaylistModal')).hide();
+            loadMusicPlaylists();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to update music playlist', 'danger');
+        }
+    }
+
+    // Helper function to get filename from path
+    function getFilename(path) {
+        return path.split(/[/\\]/).pop();
+    }
+
+    // Clone music playlist
+    async function cloneMusicPlaylist(playlistId, name) {
+        if (!confirm(`Clone playlist "${name}"?\n\nThis will create a copy with all settings and music files.`)) return;
+
+        try {
+            // Get original playlist
+            const response = await axios.get(`/music-playlists/${playlistId}`);
+            const original = response.data;
+
+            // Create clone with " (Copy)" suffix
+            await axios.post('/music-playlists/', {
+                name: original.name + ' (Copy)',
+                video_background_path: original.video_background_path,
+                music_files: original.music_files,
+                mode: original.mode
+            });
+
+            showToast('Playlist cloned successfully!', 'success');
+            loadMusicPlaylists();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to clone playlist', 'danger');
+        }
+    }
+
+    // Select all music files
+    function selectAllMusic() {
+        const checkboxes = document.querySelectorAll('.music-file-checkbox');
+        checkboxes.forEach(cb => cb.checked = true);
+    }
+
+    // Deselect all music files
+    function deselectAllMusic() {
+        const checkboxes = document.querySelectorAll('.music-file-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+    }
+</script>
+{% endblock %}

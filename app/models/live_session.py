@@ -18,6 +18,7 @@ class LiveSession(Base):
     stream_key_id = Column(Integer, ForeignKey('stream_keys.id'), nullable=False, index=True)
     video_id = Column(Integer, ForeignKey('videos.id'), nullable=True)
     playlist_id = Column(Integer, ForeignKey('playlists.id'), nullable=True)
+    music_playlist_id = Column(Integer, ForeignKey('music_playlists.id'), nullable=True)
     
     # Stream info
     mode = Column(String, nullable=False)  # 'single' or 'playlist'
@@ -43,6 +44,7 @@ class LiveSession(Base):
     stream_key = relationship("StreamKey", backref="live_sessions")
     video = relationship("Video", backref="live_sessions")
     playlist = relationship("Playlist", backref="live_sessions")
+    music_playlist = relationship("MusicPlaylist", backref="live_sessions")
     
     def to_dict(self):
         """Convert to dictionary"""

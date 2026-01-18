@@ -342,7 +342,16 @@ class FFmpegService:
             '-stream_loop', '-1' if loop else '0',  # -1 = infinite loop
             '-i', concat_file,
             
+            # --- New flags to fix the warning ---
+            '-map', '0:v:0',           # Map ONLY the first video stream
+            '-map', '0:a:0',           # Map ONLY the first audio stream
+            '-map_metadata', '-1',      # Strip all metadata/cover art
+            # ------------------------------------
+
             # Stream Copy Mode (Near 0% CPU Usage)
+            # IMPORTANT: Keyframe interval CANNOT be set here with -c:v copy!
+            # YouTube requires keyframe every 2-4 seconds.
+            # You MUST pre-encode your videos with: -g 60 -keyint_min 60
             '-c:v', 'copy',
             '-c:a', 'copy',
             
@@ -353,6 +362,181 @@ class FFmpegService:
         ]
         
         return cmd
+    
+    def start_music_playlist_stream(
+        self,
+        session_id: int,
+        video_background_path: str,
+        music_files: List[str],
+        stream_key: str,
+        audio_bitrate: str = "128k"
+    ) -> Optional[subprocess.Popen]:
+        """
+        Start FFmpeg streaming dengan music playlist + video background looping.
+        
+        Optimized untuk CPU usage minimal dengan menggunakan:
+        - Video pre-encoded: -c:v copy (no re-encoding)
+        - Audio re-encode: -c:a aac (untuk compatibility)
+        - Infinite loop untuk video dan audio
+        
+        Args:
+            session_id: LiveSession ID untuk tracking
+            video_background_path: Path ke video background (sudah di-encode)
+            music_files: List path file musik (MP3, AAC, dll)
+            stream_key: YouTube stream key
+            audio_bitrate: Audio bitrate (default: 128k)
+            
+        Returns:
+            subprocess.Popen object atau None jika gagal
+        """
+        
+        if not video_background_path or not os.path.exists(video_background_path):
+            logger.error(f"Video background not found: {video_background_path}")
+            return None
+        
+        if not music_files:
+            logger.error("No music files provided")
+            return None
+        
+        if not stream_key:
+            logger.error("No stream key provided")
+            return None
+        
+        # Check if session already has active process
+        if session_id in self.active_processes:
+            logger.warning(f"Session {session_id} already has active process")
+            return None
+        
+        try:
+            # Create concat file untuk music playlist
+            music_concat_file = self._create_concat_file(music_files, session_id)
+            
+            # Create log file
+            log_file = os.path.join(
+                self.log_dir,
+                f"music_session_{session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            )
+            
+            # Build optimized FFmpeg command
+            cmd = self._build_music_playlist_command(
+                video_background_path=video_background_path,
+                music_concat_file=music_concat_file,
+                stream_key=stream_key,
+                audio_bitrate=audio_bitrate
+            )
+            
+            # Log command (mask stream key)
+            masked_cmd = [c if 'live2/' not in c else c.replace(stream_key, '****') for c in cmd]
+            logger.info(f"Starting Music Playlist Stream for session {session_id}")
+            logger.info(f"Command: {' '.join(masked_cmd)}")
+            logger.info(f"Video Background: {video_background_path}")
+            logger.info(f"Music Files: {len(music_files)}")
+            
+            # Open log file
+            log_handle = open(log_file, 'w')
+            
+            # Start FFmpeg process
+            process = subprocess.Popen(
+                cmd,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE
+            )
+            
+            # Register process
+            self.active_processes[session_id] = {
+                'process': process,
+                'concat_file': music_concat_file,
+                'log_file': log_file,
+                'log_handle': log_handle,
+                'stream_key': stream_key,
+                'started_at': datetime.now(),
+                'type': 'music_playlist'  # Mark as music playlist stream
+            }
+            
+            logger.info(f"[OK] Music Playlist Stream started for session {session_id}")
+            logger.info(f"     PID: {process.pid}")
+            logger.info(f"     Log: {log_file}")
+            logger.info(f"     CPU Usage: Expected 10-20% (using -c:v copy)")
+            
+            return process
+            
+        except Exception as e:
+            logger.error(f"Failed to start music playlist stream for session {session_id}: {e}")
+            return None
+    
+    def _build_music_playlist_command(
+        self,
+        video_background_path: str,
+        music_concat_file: str,
+        stream_key: str,
+        audio_bitrate: str = "128k"
+    ) -> List[str]:
+        """
+        Build FFmpeg command untuk music playlist streaming.
+        
+        Optimized command dengan:
+        - -c:v copy: No video re-encoding (CPU usage minimal)
+        - -stream_loop -1: Infinite loop untuk video dan audio
+        - -map 0:v:0 -map 1:a:0: Ambil video dari input 0, audio dari input 1
+        
+        Args:
+            video_background_path: Path ke video background
+            music_concat_file: Path ke concat file musik
+            stream_key: YouTube stream key
+            audio_bitrate: Audio bitrate
+            
+        Returns:
+            List command arguments
+        """
+        
+        # RTMP URL
+        rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
+        
+        # Build optimized command
+        cmd = [
+            FFMPEG_PATH,
+            '-nostdin',              # Disable interactive stdin
+            '-loglevel', 'warning',  # Only show warnings and errors
+            '-fflags', '+genpts+igndts', # Force generation of PTS and ignore DTS for stability
+            
+            # Input 0: Video Background (looping)
+            '-thread_queue_size', '512', # Increase buffer
+            '-stream_loop', '-1',    # Infinite loop
+            '-re',                   # Read at native frame rate
+            '-i', video_background_path,
+            
+            # Input 1: Music Playlist (looping)
+            '-thread_queue_size', '512', # Increase buffer
+            '-f', 'concat',
+            '-safe', '0',
+            '-stream_loop', '-1',    # Infinite loop
+            '-i', music_concat_file,
+            
+            # Video: Copy (no re-encoding) - CPU usage minimal!
+            # NOTE: Keyframe interval MUST be set in source video!
+            # YouTube requires keyframe every 2-4 seconds.
+            # Pre-encode your background video with: -g 60 -keyint_min 60
+            '-c:v', 'copy',
+            
+            # Audio: Re-encode to AAC for compatibility
+            '-c:a', 'aac',
+            '-b:a', audio_bitrate,
+            '-ar', '44100',          # Sample rate
+            '-ac', '2',              # Stereo
+            
+            # Mapping: Video from input 0, Audio from input 1
+            '-map', '0:v:0',         # Video from background
+            '-map', '1:a:0',         # Audio from playlist
+            
+            # Output settings
+            '-f', 'flv',
+            '-flvflags', 'no_duration_filesize',
+            rtmp_url
+        ]
+        
+        return cmd
+
     
     def get_log_content(self, session_id: int, lines: int = 50) -> Optional[str]:
         """

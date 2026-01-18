@@ -45,10 +45,13 @@ app.include_router(websocket.router)  # WebSocket monitoring (usually handles au
 
 # Optional: YouTube API
 try:
-    from app.routers import youtube_api, youtube_web, media
+    from app.routers import youtube_api, youtube_web, media, music_playlist, music_files, categories
     app.include_router(youtube_api.router, dependencies=protected_dependency)  # YouTube API endpoints
     app.include_router(youtube_web.router, dependencies=protected_dependency)  # YouTube web pages
     app.include_router(media.router, dependencies=protected_dependency)  # Media Library
+    app.include_router(music_playlist.router, dependencies=protected_dependency)  # Music Playlists
+    app.include_router(music_files.router, dependencies=protected_dependency)  # Music Files
+    app.include_router(categories.router, dependencies=protected_dependency)  # Categories
 except ImportError as e:
     print(f"⚠️ Failed to import YouTube modules: {e}")
     pass

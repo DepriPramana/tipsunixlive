@@ -68,6 +68,13 @@ def stream_keys_dashboard(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/stream-keys/api")
+async def get_stream_keys_api(db: Session = Depends(get_db)):
+    """API endpoint to get stream keys as JSON"""
+    stream_keys = db.query(StreamKey).filter(StreamKey.is_active == True).all()
+    return [{"id": key.id, "name": key.name} for key in stream_keys]
+
+
 @router.get("/stream-keys/add", response_class=HTMLResponse)
 def add_stream_key_form(request: Request):
     """Show add stream key form"""

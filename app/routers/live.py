@@ -549,3 +549,142 @@ def cleanup_orphaned_processes(db: Session = Depends(get_db)):
         Cleanup result
     """
     return stream_control.force_cleanup_orphaned_processes(db)
+
+
+class MusicPlaylistLiveRequest(BaseModel):
+    """Request model untuk music playlist streaming"""
+    music_playlist_id: int
+    stream_key_id: int
+    max_duration_hours: Optional[int] = 0  # 0 = unlimited
+
+
+@router.post("/music-playlist")
+def start_music_playlist_live(
+    request: MusicPlaylistLiveRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Start music playlist streaming dengan video background looping.
+    
+    Optimized untuk CPU usage minimal (10-20%) dengan menggunakan:
+    - Video pre-encoded: -c:v copy (no re-encoding)
+    - Audio re-encode: -c:a aac (untuk compatibility)
+    - Infinite loop untuk video dan audio
+    
+    Args:
+        request: MusicPlaylistLiveRequest
+        db: Database session
+        
+    Returns:
+        Session info
+    """
+    from app.models.music_playlist import MusicPlaylist
+    from app.services.music_playlist_service import MusicPlaylistService
+    
+    # Step 1: Validate stream key
+    stream_key = db.query(StreamKey).filter(
+        StreamKey.id == request.stream_key_id
+    ).first()
+    
+    if not stream_key:
+        raise HTTPException(404, f"Stream key {request.stream_key_id} not found")
+    
+    if not stream_key.is_active:
+        raise HTTPException(400, f"Stream key '{stream_key.name}' is not active")
+    
+    # Step 2: Get music playlist
+    music_playlist_service = MusicPlaylistService(db)
+    music_playlist = music_playlist_service.get_music_playlist(request.music_playlist_id)
+    
+    if not music_playlist:
+        raise HTTPException(404, f"Music playlist {request.music_playlist_id} not found")
+    
+    # Get music files (with shuffle if mode is random)
+    music_files = music_playlist_service.get_music_files(
+        request.music_playlist_id,
+        shuffle=(music_playlist.mode == "random")
+    )
+    
+    if not music_files:
+        raise HTTPException(400, f"Music playlist {request.music_playlist_id} has no music files")
+    
+    # Step 3: Validations
+    
+    # Check if stream key is already in use
+    existing_session = db.query(LiveSession).filter(
+        LiveSession.stream_key_id == request.stream_key_id,
+        LiveSession.status == 'running'
+    ).first()
+    
+    if existing_session:
+        raise HTTPException(
+            409,
+            f"Stream key '{stream_key.name}' is already in use by session {existing_session.id}"
+        )
+    
+    # Check concurrent streams limit
+    from app.config import MAX_CONCURRENT_STREAMS
+    
+    total_active = db.query(LiveSession).filter(
+        LiveSession.status == 'running'
+    ).count()
+    
+    if total_active >= MAX_CONCURRENT_STREAMS:
+        raise HTTPException(
+            429,
+            f"Maximum concurrent streams limit reached ({MAX_CONCURRENT_STREAMS})"
+        )
+    
+    # Step 4: Create live session
+    session = LiveSession(
+        stream_key_id=request.stream_key_id,
+        music_playlist_id=request.music_playlist_id,
+        mode='music_playlist',  # New mode
+        loop=True,  # Always loop for music playlists
+        status='starting',
+        max_duration_hours=request.max_duration_hours,
+        start_time=datetime.utcnow()
+    )
+    
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    
+    # Step 5: Start FFmpeg process with music playlist
+    try:
+        process = ffmpeg_service.start_music_playlist_stream(
+            session_id=session.id,
+            video_background_path=music_playlist.video_background_path,
+            music_files=music_files,
+            stream_key=stream_key.get_full_key(),
+            audio_bitrate="128k"
+        )
+        
+        if not process:
+            session.status = 'failed'
+            db.commit()
+            raise HTTPException(500, "Failed to start FFmpeg process")
+        
+        # Update session with PID
+        session.ffmpeg_pid = process.pid
+        session.status = 'running'
+        db.commit()
+        db.refresh(session)
+        
+        return {
+            "success": True,
+            "session_id": session.id,
+            "stream_key_name": stream_key.name,
+            "mode": "music_playlist",
+            "music_playlist_name": music_playlist.name,
+            "music_count": len(music_files),
+            "ffmpeg_pid": process.pid,
+            "status": "running",
+            "message": f"Music playlist streaming started successfully with minimal CPU usage (10-20%)"
+        }
+        
+    except Exception as e:
+        session.status = 'failed'
+        db.commit()
+        raise HTTPException(500, f"Error starting music playlist stream: {str(e)}")
+

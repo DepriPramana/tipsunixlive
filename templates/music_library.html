@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+
+{% block title %}Music Library - YouTube Live Streaming{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-music-note-beamed"></i> Music Library</h2>
+        <p class="text-muted">Manage your music collection for streaming</p>
+    </div>
+    <div>
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#uploadMusicModal">
+            <i class="bi bi-cloud-upload"></i> Upload Music
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
+            <i class="bi bi-folder"></i> Manage Categories
+        </button>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" class="form-control" id="searchInput" placeholder="Search by filename...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Category</label>
+                <select class="form-select" id="categoryFilter">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Format</label>
+                <select class="form-select" id="formatFilter">
+                    <option value="">All Formats</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Sort By</label>
+                <select class="form-select" id="sortSelect">
+                    <option value="filename">Name</option>
+                    <option value="uploaded_at">Date Added</option>
+                    <option value="duration">Duration</option>
+                    <option value="file_size">File Size</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">Order</label>
+                <select class="form-select" id="orderSelect">
+                    <option value="asc">↑</option>
+                    <option value="desc">↓</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Music Files List -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span id="musicCount">Loading...</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshMusicList()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Category</th>
+                        <th>Duration</th>
+                        <th>Size</th>
+                        <th>Format</th>
+                        <th>Uploaded</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="musicTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <nav id="paginationNav" class="mt-3" style="display: none;">
+            <ul class="pagination justify-content-center" id="paginationList">
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Upload Music Modal -->
+<div class="modal fade" id="uploadMusicModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Music Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select Files</label>
+                    <input type="file" class="form-control" id="musicFilesInput" multiple accept="audio/*">
+                    <div class="form-text">Supported: MP3, AAC, M4A, WAV, FLAC, OGG</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Category (Optional)</label>
+                    <select class="form-select" id="uploadCategory">
+                        <option value="">No Category</option>
+                    </select>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="uploadProgress" style="display: none;">
+                    <h6>Upload Progress</h6>
+                    <div id="uploadProgressList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="uploadMusicFiles()">
+                    <i class="bi bi-cloud-upload"></i> Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Music Modal -->
+<div class="modal fade" id="editMusicModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Music File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editMusicId">
+
+                <div class="mb-3">
+                    <label class="form-label">Filename</label>
+                    <input type="text" class="form-control" id="editFilename">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="editCategory">
+                        <option value="">No Category</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Tags (comma-separated)</label>
+                    <input type="text" class="form-control" id="editTags" placeholder="lofi, chill, relaxing">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEditMusic()">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manage Categories Modal -->
+<div class="modal fade" id="manageCategoriesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Manage Categories</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <button class="btn btn-sm btn-success mb-3" onclick="showAddCategoryForm()">
+                    <i class="bi bi-plus-circle"></i> Add Category
+                </button>
+
+                <!-- Add Category Form -->
+                <div id="addCategoryForm" class="card mb-3" style="display: none;">
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="newCategoryName"
+                                    placeholder="Category name">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" id="newCategoryDescription"
+                                    placeholder="Description (optional)">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="color" class="form-control form-control-color" id="newCategoryColor"
+                                    value="#6c757d">
+                            </div>
+                            <div class="col-md-1">
+                                <button class="btn btn-primary w-100" onclick="createCategory()">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories List -->
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Color</th>
+                                <th>Music Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let musicFiles = [];
+    let categories = [];
+    let formats = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let limit = 50;
+
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        loadCategories();
+        loadFormats();
+        loadMusicFiles();
+
+        // Setup search with debounce
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                loadMusicFiles();
+            }, 500);
+        });
+
+        // Setup filter change handlers
+        document.getElementById('categoryFilter').addEventListener('change', () => {
+            currentPage = 1;
+            loadMusicFiles();
+        });
+
+        document.getElementById('formatFilter').addEventListener('change', () => {
+            currentPage = 1;
+            loadMusicFiles();
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', loadMusicFiles);
+        document.getElementById('orderSelect').addEventListener('change', loadMusicFiles);
+    });
+
+    // Load categories
+    async function loadCategories() {
+        try {
+            const response = await axios.get('/categories/');
+            categories = response.data;
+            renderCategoryFilters();
+            renderCategoriesTable();
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    // Render category filters
+    function renderCategoryFilters() {
+        const categoryFilter = document.getElementById('categoryFilter');
+        const uploadCategory = document.getElementById('uploadCategory');
+        const editCategory = document.getElementById('editCategory');
+
+        const options = '<option value="">All Categories</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+
+        categoryFilter.innerHTML = options;
+        uploadCategory.innerHTML = '<option value="">No Category</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+        editCategory.innerHTML = '<option value="">No Category</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+    }
+
+    // Load formats
+    async function loadFormats() {
+        try {
+            const response = await axios.get('/music-files/formats');
+            formats = response.data.formats;
+
+            const formatFilter = document.getElementById('formatFilter');
+            formatFilter.innerHTML = '<option value="">All Formats</option>' +
+                formats.map(fmt => `<option value="${fmt}">${fmt.toUpperCase()}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading formats:', error);
+        }
+    }
+
+    // Load music files
+    async function loadMusicFiles() {
+        try {
+            const search = document.getElementById('searchInput').value;
+            const categoryId = document.getElementById('categoryFilter').value;
+            const format = document.getElementById('formatFilter').value;
+            const sort = document.getElementById('sortSelect').value;
+            const order = document.getElementById('orderSelect').value;
+
+            const params = {
+                page: currentPage,
+                limit: limit,
+                sort: sort,
+                order: order
+            };
+
+            if (search) params.search = search;
+            if (categoryId) params.category_id = categoryId;
+            if (format) params.format = format;
+
+            const response = await axios.get('/music-files/', { params });
+
+            musicFiles = response.data.music_files;
+            totalPages = response.data.total_pages;
+
+            document.getElementById('musicCount').textContent =
+                `Showing ${musicFiles.length} of ${response.data.total} music files`;
+
+            renderMusicTable();
+            renderPagination();
+        } catch (error) {
+            console.error('Error loading music files:', error);
+            showToast('Failed to load music files', 'danger');
+        }
+    }
+
+    // Render music table
+    function renderMusicTable() {
+        const tbody = document.getElementById('musicTableBody');
+
+        if (musicFiles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No music files found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = musicFiles.map(music => `
+            <tr>
+                <td>
+                    <i class="bi bi-music-note-beamed text-primary"></i>
+                    ${music.filename}
+                    ${music.tags && music.tags.length > 0 ?
+                '<br><small class="text-muted">' + music.tags.map(tag =>
+                    `<span class="badge bg-secondary">${tag}</span>`
+                ).join(' ') + '</small>' : ''}
+                </td>
+                <td>
+                    ${music.category_name ?
+                `<span class="badge" style="background-color: ${music.category_color}">${music.category_name}</span>` :
+                '<span class="text-muted">-</span>'}
+                </td>
+                <td>${formatDuration(music.duration)}</td>
+                <td>${formatFileSize(music.file_size)}</td>
+                <td><span class="badge bg-info">${music.format.toUpperCase()}</span></td>
+                <td><small>${new Date(music.uploaded_at).toLocaleDateString()}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditMusic(${music.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMusic(${music.id}, '${music.filename}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Render pagination
+    function renderPagination() {
+        const paginationNav = document.getElementById('paginationNav');
+        const paginationList = document.getElementById('paginationList');
+
+        if (totalPages <= 1) {
+            paginationNav.style.display = 'none';
+            return;
+        }
+
+        paginationNav.style.display = 'block';
+
+        let html = '';
+
+        // Previous button
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
+        </li>`;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                </li>`;
+            } else if (i === currentPage - 3 || i === currentPage + 3) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+        }
+
+        // Next button
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
+        </li>`;
+
+        paginationList.innerHTML = html;
+    }
+
+    // Change page
+    function changePage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadMusicFiles();
+    }
+
+    // Refresh music list
+    function refreshMusicList() {
+        loadMusicFiles();
+        showToast('Music list refreshed', 'success');
+    }
+
+    // Upload music files
+    async function uploadMusicFiles() {
+        const filesInput = document.getElementById('musicFilesInput');
+        const categoryId = document.getElementById('uploadCategory').value;
+
+        if (!filesInput.files || filesInput.files.length === 0) {
+            showToast('Please select files to upload', 'danger');
+            return;
+        }
+
+        const formData = new FormData();
+        for (let file of filesInput.files) {
+            formData.append('files', file);
+        }
+        if (categoryId) {
+            formData.append('category_id', categoryId);
+        }
+
+        try {
+            document.getElementById('uploadProgress').style.display = 'block';
+            document.getElementById('uploadProgressList').innerHTML =
+                '<div class="spinner-border spinner-border-sm" role="status"></div> Uploading...';
+
+            const response = await axios.post('/music-files/bulk-upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const result = response.data;
+
+            let message = `Upload complete: ${result.success_count} succeeded`;
+            if (result.failed_count > 0) message += `, ${result.failed_count} failed`;
+            if (result.skipped_count > 0) message += `, ${result.skipped_count} skipped`;
+
+            showToast(message, result.failed_count > 0 ? 'warning' : 'success');
+
+            bootstrap.Modal.getInstance(document.getElementById('uploadMusicModal')).hide();
+            filesInput.value = '';
+            document.getElementById('uploadProgress').style.display = 'none';
+
+            loadMusicFiles();
+            loadFormats();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Upload failed', 'danger');
+            document.getElementById('uploadProgress').style.display = 'none';
+        }
+    }
+
+    // Open edit music modal
+    async function openEditMusic(musicId) {
+        try {
+            const response = await axios.get(`/music-files/${musicId}`);
+            const music = response.data;
+
+            document.getElementById('editMusicId').value = music.id;
+            document.getElementById('editFilename').value = music.filename;
+            document.getElementById('editCategory').value = music.category_id || '';
+            document.getElementById('editTags').value = music.tags ? music.tags.join(', ') : '';
+
+            new bootstrap.Modal(document.getElementById('editMusicModal')).show();
+        } catch (error) {
+            showToast('Failed to load music file', 'danger');
+        }
+    }
+
+    // Save edit music
+    async function saveEditMusic() {
+        const musicId = document.getElementById('editMusicId').value;
+        const filename = document.getElementById('editFilename').value;
+        const categoryId = document.getElementById('editCategory').value || null;
+        const tagsStr = document.getElementById('editTags').value;
+        const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+
+        try {
+            await axios.put(`/music-files/${musicId}`, {
+                filename: filename,
+                category_id: categoryId,
+                tags: tags
+            });
+
+            showToast('Music file updated successfully', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editMusicModal')).hide();
+            loadMusicFiles();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to update music file', 'danger');
+        }
+    }
+
+    // Delete music
+    async function deleteMusic(musicId, filename) {
+        if (!confirm(`Delete "${filename}"?\n\nThis will also delete the physical file.`)) return;
+
+        try {
+            await axios.delete(`/music-files/${musicId}?delete_file=true`);
+            showToast('Music file deleted successfully', 'success');
+            loadMusicFiles();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to delete music file', 'danger');
+        }
+    }
+
+    // Categories Management
+    function showAddCategoryForm() {
+        document.getElementById('addCategoryForm').style.display = 'block';
+    }
+
+    async function createCategory() {
+        const name = document.getElementById('newCategoryName').value;
+        const description = document.getElementById('newCategoryDescription').value;
+        const color = document.getElementById('newCategoryColor').value;
+
+        if (!name) {
+            showToast('Please enter category name', 'danger');
+            return;
+        }
+
+        try {
+            await axios.post('/categories/', {
+                name: name,
+                description: description,
+                color: color
+            });
+
+            showToast('Category created successfully', 'success');
+            document.getElementById('newCategoryName').value = '';
+            document.getElementById('newCategoryDescription').value = '';
+            document.getElementById('newCategoryColor').value = '#6c757d';
+            document.getElementById('addCategoryForm').style.display = 'none';
+
+            loadCategories();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to create category', 'danger');
+        }
+    }
+
+    function renderCategoriesTable() {
+        const tbody = document.getElementById('categoriesTableBody');
+
+        if (categories.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No categories yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = categories.map(cat => `
+            <tr>
+                <td>${cat.name}</td>
+                <td>${cat.description || '-'}</td>
+                <td><span class="badge" style="background-color: ${cat.color}">${cat.color}</span></td>
+                <td>${cat.music_count || 0}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory(${cat.id}, '${cat.name}', ${cat.music_count})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function deleteCategory(categoryId, name, musicCount) {
+        const message = musicCount > 0 ?
+            `Delete category "${name}"?\n\n${musicCount} music files will be moved to uncategorized.` :
+            `Delete category "${name}"?`;
+
+        if (!confirm(message)) return;
+
+        try {
+            await axios.delete(`/categories/${categoryId}`);
+            showToast('Category deleted successfully', 'success');
+            loadCategories();
+            loadMusicFiles();
+        } catch (error) {
+            showToast(error.response?.data?.detail || 'Failed to delete category', 'danger');
+        }
+    }
+
+    // Helper functions
+    function formatDuration(seconds) {
+        if (!seconds) return '-';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function formatFileSize(bytes) {
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return `${size.toFixed(2)} ${units[unitIndex]}`;
+    }
+</script>
+{% endblock %}

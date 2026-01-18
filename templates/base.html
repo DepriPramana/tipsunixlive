@@ -196,8 +196,17 @@
             <a class="nav-link {% if '/download' in request.url.path %}active{% endif %}" href="/admin/download">
                 <i class="bi bi-cloud-arrow-down"></i> Download
             </a>
-            <a class="nav-link {% if '/playlists' in request.url.path %}active{% endif %}" href="/admin/playlists">
+            <a class="nav-link {% if '/playlists' in request.url.path and '/music-playlists' not in request.url.path %}active{% endif %}"
+                href="/admin/playlists">
                 <i class="bi bi-list-ul"></i> Playlists
+            </a>
+            <a class="nav-link {% if '/music-playlists' in request.url.path %}active{% endif %}"
+                href="/admin/music-playlists">
+                <i class="bi bi-music-note-list"></i> Music Playlists
+            </a>
+            <a class="nav-link {% if '/music-library' in request.url.path %}active{% endif %}"
+                href="/admin/music-library">
+                <i class="bi bi-music-note-beamed"></i> Music Library
             </a>
             <a class="nav-link {% if '/media' in request.url.path %}active{% endif %}" href="/admin/media">
                 <i class="bi bi-folder-symlink"></i> Media Library
