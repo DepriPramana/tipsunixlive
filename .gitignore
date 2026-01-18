@@ -14,3 +14,9 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+logs/
+backgrounds/
+downloads/
+music/
+thumbnails/
+uploaded/    
