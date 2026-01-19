@@ -429,6 +429,10 @@ class MyService:
 my_service = MyService()
 ```
 
+### Add optimize_video.py
+
+```python
+ffmpeg -i input.mp4 -c:v libx264 -preset medium -b:v 4000k -g 60 -keyint_min 60 -sc_threshold 0 -r 30 -s 1920x1080 -c:a aac -b:a 128k output.mp4
 ---
 
 ## 🤝 Contributing
