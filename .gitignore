@@ -16,7 +16,7 @@ venv/
 .venv/
 logs/
 backgrounds/.*
-downloads/.*
+downloaded/.*
 music/.*
 thumbnails/.*
 uploaded/.*
