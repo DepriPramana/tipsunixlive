@@ -91,7 +91,7 @@
                 </thead>
                 <tbody>
                     {% for video in videos %}
-                    <tr data-video-id="{{ video.id }}" data-source="{{ video.source }}"
+                    <tr class="align-middle" data-video-id="{{ video.id }}" data-source="{{ video.source }}"
                         data-name="{{ video.name|lower }}">
                         <td>{{ video.id }}</td>
                         <td>
@@ -140,20 +140,28 @@
                             <span class="badge bg-secondary">{{ video.source }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-end table-actions">
-                            <button class="btn btn-sm btn-success"
-                                onclick="openBroadcastModal({{ video.id }}, '{{ video.name | replace("'", "\\'") }}')"
-                                title="Broadcast this video">
-                                <i class="bi bi-broadcast"></i> Live
-                            </button>
-                            <button class="btn btn-sm btn-info" onclick="viewDetails({{ video.id }})"
-                                title="View details">
-                                <i class="bi bi-info-circle"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger"
-                                onclick="deleteVideo({{ video.id }}, '{{ video.name }}')" title="Delete video">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                        <td class="text-end text-nowrap">
+                            <div class="btn-group" role="group" aria-label="Video Actions">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="openLoopPreview({{ video.id }}, '{{ video.name | replace("'", "\\'") }}')"
+                                    data-bs-toggle="tooltip" title="Loop Preview">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success"
+                                    onclick="openBroadcastModal({{ video.id }}, '{{ video.name | replace("'", "\\'") }}')"
+                                    data-bs-toggle="tooltip" title="Broadcast Video">
+                                    <i class="bi bi-broadcast"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                    onclick="viewDetails({{ video.id }})" data-bs-toggle="tooltip" title="View Details">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteVideo({{ video.id }}, '{{ video.name }}')" data-bs-toggle="tooltip"
+                                    title="Delete Video">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -174,6 +182,28 @@
         </div>
     </div>
 </div>
+
+<!-- Loop Preview Modal -->
+<div class="modal fade" id="loopPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Loop Preview</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 text-center">
+                <video id="loopPreviewVideo" controls loop style="width: 100%; max-height: 70vh;">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="modal-footer border-secondary">
+                <small class="text-muted me-auto">Check if the video loops smoothly for background usage.</small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <!-- Video Details Modal -->
 <div class="modal fade" id="detailsModal" tabindex="-1">
@@ -348,6 +378,12 @@
             const avgHeight = Math.round(resolutions.reduce((sum, v) => sum + v.height, 0) / resolutions.length);
             document.getElementById('avgResolution').textContent = `${avgWidth}x${avgHeight}`;
         }
+
+        // Initialize Tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
     });
 
         // Search functionality
@@ -367,6 +403,24 @@
                 const matchesSource = !sourceFilter || source === sourceFilter;
 
                 row.style.display = (matchesSearch && matchesSource) ? '' : 'none';
+            });
+        }
+
+        // Loop Preview Logic
+        function openLoopPreview(videoId, name) {
+            const modal = new bootstrap.Modal(document.getElementById('loopPreviewModal'));
+            const videoEl = document.getElementById('loopPreviewVideo');
+
+            // Set source to new stream endpoint
+            videoEl.src = `/media/stream/${videoId}`;
+            videoEl.play();
+
+            modal.show();
+
+            // Cleanup on close
+            document.getElementById('loopPreviewModal').addEventListener('hidden.bs.modal', function () {
+                videoEl.pause();
+                videoEl.src = "";
             });
         }
 
@@ -507,18 +561,34 @@
 
         // Delete video
         async function deleteVideo(videoId, videoName) {
-            if (!confirm(`Are you sure you want to delete "${videoName}"?\n\nThis action cannot be undone.`)) return;
+            if (!confirm(`Are you sure you want to delete "${videoName}"?\n\nThis action cannot be undone and will delete the file permanently.`)) return;
 
             try {
-                // In future, create DELETE endpoint
-                showToast('Delete functionality will be implemented soon', 'info');
+                const response = await axios.delete(`/media/${videoId}`);
 
-                // Example implementation:
-                // await axios.delete(`/videos/${videoId}`);
-                // showToast('Video deleted successfully', 'success');
-                // setTimeout(() => location.reload(), 1000);
+                if (response.data.status === 'success') {
+                    showToast('Video deleted successfully', 'success');
+
+                    // Remove row from table smoothly
+                    const row = document.querySelector(`tr[data-video-id="${videoId}"]`);
+                    if (row) {
+                        row.style.transition = 'all 0.5s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            // Update stats if needed or just reload
+                            // For simplicity, reload to update stats
+                            setTimeout(() => location.reload(), 500);
+                        }, 500);
+                    } else {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                } else {
+                    throw new Error(response.data.message || 'Failed to delete');
+                }
             } catch (error) {
-                showToast('Failed to delete video', 'danger');
+                console.error('Delete error:', error);
+                showToast(error.response?.data?.detail || 'Failed to delete video', 'danger');
             }
         }
     </script>

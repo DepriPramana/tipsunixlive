@@ -261,3 +261,67 @@ def cancel_scheduled_job(job_id: str) -> bool:
     except Exception as e:
         logger.error(f"❌ Failed to cancel job {job_id}: {e}")
         return False
+        return False
+
+def _execute_daily_cleanup():
+    """
+    Daily maintenance task to clean up old logs and temp files.
+    """
+    import os
+    import time
+    import tempfile
+    
+    logger.info("🧹 Starting daily disk cleanup...")
+    
+    # 1. Clean up FFmpeg logs (> 7 days)
+    try:
+        log_dir = "logs/ffmpeg"
+        if os.path.exists(log_dir):
+            cutoff = time.time() - (7 * 86400) # 7 days
+            count = 0
+            
+            for filename in os.listdir(log_dir):
+                filepath = os.path.join(log_dir, filename)
+                if os.path.isfile(filepath):
+                    if os.path.getmtime(filepath) < cutoff:
+                        try:
+                            os.remove(filepath)
+                            count += 1
+                        except: pass
+            
+            logger.info(f"   Deleted {count} old FFmpeg logs")
+    except Exception as e:
+        logger.error(f"   Error cleaning logs: {e}")
+
+    # 2. Clean up temp concat files (> 24 hours)
+    try:
+        temp_dir = tempfile.gettempdir()
+        cutoff = time.time() - 86400 # 24 hours
+        count = 0
+        
+        # Scan for our specific prefix
+        for filename in os.listdir(temp_dir):
+            if filename.startswith("ffmpeg_concat_") and filename.endswith(".txt"):
+                filepath = os.path.join(temp_dir, filename)
+                try:
+                    if os.path.getmtime(filepath) < cutoff:
+                        os.remove(filepath)
+                        count += 1
+                except: pass
+                
+        logger.info(f"   Deleted {count} old temp broadcast files")
+            
+    except Exception as e:
+        logger.error(f"   Error cleaning temp files: {e}")
+        
+    logger.info("✅ Daily cleanup completed")
+
+# Schedule cleanup to run daily at 04:00 AM
+scheduler.add_job(
+    _execute_daily_cleanup,
+    'cron',
+    hour=4,
+    minute=0,
+    id='daily_cleanup',
+    replace_existing=True
+)

@@ -102,3 +102,19 @@ def sync_videos(db: Session = Depends(get_db)):
                         db.commit()
                 
     return {"status": "success", "added": count}
+
+@router.get("/stream/{video_id}")
+def stream_video(video_id: int, db: Session = Depends(get_db)):
+    """Stream video file by ID"""
+    from fastapi.responses import FileResponse
+    from app.models.video import Video
+    import os
+    
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(404, "Video not found")
+        
+    if not os.path.exists(video.path):
+        raise HTTPException(404, "Video file not found on disk")
+        
+    return FileResponse(video.path, media_type="video/mp4", filename=video.name)

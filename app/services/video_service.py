@@ -145,9 +145,14 @@ class VideoService:
         """Get video by ID"""
         return self.db.query(Video).filter(Video.id == video_id).first()
     
-    def get_all_videos(self, skip: int = 0, limit: int = 100) -> List[Video]:
-        """Get all videos dengan pagination"""
-        return self.db.query(Video).offset(skip).limit(limit).all()
+    def get_all_videos(self, skip: int = 0, limit: int = 100, source: str = None) -> List[Video]:
+        """Get all videos dengan pagination dan filtering optional"""
+        query = self.db.query(Video)
+        
+        if source:
+            query = query.filter(Video.source == source)
+            
+        return query.offset(skip).limit(limit).all()
     
     def delete_video(self, video_id: int) -> bool:
         """

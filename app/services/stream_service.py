@@ -10,7 +10,14 @@ import time
 import threading
 from typing import List, Optional
 from pathlib import Path
-from app.config import YOUTUBE_STREAM_KEY, FFMPEG_PATH
+from app.config import (
+    YOUTUBE_STREAM_KEY, 
+    FFMPEG_PATH,
+    FFMPEG_PRESET,
+    FFMPEG_MAXRATE,
+    FFMPEG_BUFSIZE,
+    FFMPEG_GOP
+)
 
 # Setup logging
 logging.basicConfig(
@@ -33,7 +40,13 @@ class StreamService:
         self.current_session_id: Optional[int] = None
         self.monitor_thread: Optional[threading.Thread] = None
         self.should_monitor = False
-    
+        
+        # Retry logic state
+        self.retry_count = 0
+        self.max_retries = 5
+        self.last_video_paths: List[str] = []
+        self.last_loop_setting: bool = True
+
     def create_concat_file(self, video_paths: List[str]) -> str:
         """
         Membuat file concat untuk FFmpeg demuxer.
@@ -62,29 +75,20 @@ class StreamService:
             logger.error(f"Error membuat concat file: {e}")
             os.close(fd)
             raise
-    
+
     def start_stream(
         self,
         video_paths: List[str],
         playlist_id: Optional[int] = None,
         video_id: Optional[int] = None,
         loop: bool = True,
-        session_id: Optional[int] = None
+        session_id: Optional[int] = None,
+        is_retry: bool = False
     ) -> bool:
         """
         Mulai streaming playlist ke YouTube dengan LiveHistory tracking.
-        
-        Args:
-            video_paths: List path video untuk di-stream
-            playlist_id: ID playlist yang sedang di-stream
-            video_id: ID video (untuk single mode)
-            loop: Jika True, loop playlist tanpa henti
-            session_id: ID LiveHistory session untuk tracking
-            
-        Returns:
-            True jika berhasil start, False jika gagal
         """
-        if self.is_streaming:
+        if self.is_streaming and not is_retry:
             logger.warning("Stream sudah berjalan. Stop stream terlebih dahulu.")
             return False
         
@@ -97,21 +101,26 @@ class StreamService:
             return False
         
         try:
+            # Save state for retry
+            if not is_retry:
+                self.retry_count = 0
+            
+            self.last_video_paths = video_paths
+            self.last_loop_setting = loop
+            self.current_playlist_id = playlist_id
+            self.current_video_id = video_id
+            self.current_session_id = session_id
+
             # Buat concat file
             self.concat_file = self.create_concat_file(video_paths)
             
             # Determine mode
             mode = 'playlist' if playlist_id else 'single'
+            self.current_mode = mode
             
             # Log video yang akan di-stream
-            logger.info(f"Memulai stream (mode: {mode})")
-            if playlist_id:
-                logger.info(f"Playlist ID: {playlist_id}")
-            if video_id:
-                logger.info(f"Video ID: {video_id}")
-            
-            for idx, path in enumerate(video_paths, 1):
-                logger.info(f"  {idx}. {Path(path).name}")
+            action_msg = "Merestart stream" if is_retry else "Memulai stream"
+            logger.info(f"{action_msg} (mode: {mode}, retry: {self.retry_count}/{self.max_retries})")
             
             # FFmpeg command untuk streaming
             cmd = [
@@ -122,11 +131,11 @@ class StreamService:
                 '-stream_loop', '-1' if loop else '0',  # Loop infinitely atau sekali
                 '-i', self.concat_file,  # Input concat file
                 '-c:v', 'libx264',  # Video codec
-                '-preset', 'veryfast',  # Encoding preset
-                '-maxrate', '3000k',  # Max bitrate
-                '-bufsize', '6000k',  # Buffer size
+                '-preset', FFMPEG_PRESET,  # Encoding preset
+                '-maxrate', FFMPEG_MAXRATE,  # Max bitrate
+                '-bufsize', FFMPEG_BUFSIZE,  # Buffer size
                 '-pix_fmt', 'yuv420p',  # Pixel format
-                '-g', '50',  # GOP size
+                '-g', FFMPEG_GOP,  # GOP size
                 '-c:a', 'aac',  # Audio codec
                 '-b:a', '128k',  # Audio bitrate
                 '-ar', '44100',  # Audio sample rate
@@ -144,19 +153,14 @@ class StreamService:
             
             # Set state
             self.is_streaming = True
-            self.current_playlist_id = playlist_id
-            self.current_video_id = video_id
-            self.current_mode = mode
-            self.current_session_id = session_id
             
-            logger.info(f"✅ Stream dimulai! PID: {self.process.pid}")
-            logger.info(f"Mode: {'Loop 24/7' if loop else 'Play once'}")
-            logger.info(f"Session ID: {session_id}")
+            logger.info(f"✅ Stream started! PID: {self.process.pid}")
             
-            # Start monitoring thread untuk detect crash
+            # Start monitoring thread jika belum jalan
             self.should_monitor = True
-            self.monitor_thread = threading.Thread(target=self._monitor_stream, daemon=True)
-            self.monitor_thread.start()
+            if not self.monitor_thread or not self.monitor_thread.is_alive():
+                self.monitor_thread = threading.Thread(target=self._monitor_stream, daemon=True)
+                self.monitor_thread.start()
             
             return True
             
@@ -167,12 +171,15 @@ class StreamService:
     
     def _monitor_stream(self):
         """
-        Monitor FFmpeg process untuk detect crash.
-        Runs in background thread.
+        Monitor FFmpeg process untuk detect crash dan auto-restart.
         """
         logger.info("🔍 Stream monitoring started")
         
-        while self.should_monitor and self.process:
+        while self.should_monitor:
+            if not self.process:
+                time.sleep(1)
+                continue
+
             # Check if process is still running
             poll_result = self.process.poll()
             
@@ -180,19 +187,48 @@ class StreamService:
                 # Process has terminated
                 logger.warning(f"⚠️  FFmpeg process terminated with code: {poll_result}")
                 
+                # Intentional stop?
+                if not self.should_monitor:
+                    logger.info("Monitoring stop requested. Exiting thread.")
+                    break
+
                 # Read stderr untuk error message
                 try:
                     stderr = self.process.stderr.read() if self.process.stderr else ""
                     if stderr:
-                        logger.error(f"FFmpeg error: {stderr[:500]}")  # Log first 500 chars
+                        logger.error(f"FFmpeg logs: ...{stderr[-200:]}")
                 except:
                     pass
                 
-                # Mark as crashed
+                # CRASH DETECTED - ATTEMPT RESTART
+                if self.retry_count < self.max_retries:
+                    self.retry_count += 1
+                    backoff_time = 5 * (2 ** (self.retry_count - 1)) # 5, 10, 20, 40, 80 seconds
+                    
+                    logger.warning(f"🔄 Attempting restart {self.retry_count}/{self.max_retries} in {backoff_time}s...")
+                    time.sleep(backoff_time)
+                    
+                    # Restart using stored parameters
+                    success = self.start_stream(
+                        video_paths=self.last_video_paths,
+                        playlist_id=self.current_playlist_id,
+                        video_id=self.current_video_id,
+                        loop=self.last_loop_setting,
+                        session_id=self.current_session_id,
+                        is_retry=True
+                    )
+                    
+                    if success:
+                        logger.info("✅ Auto-restart successful")
+                        continue
+                    else:
+                        logger.error("❌ Auto-restart failed")
+                else:
+                    logger.error("❌ Max retries reached. Stream permanently failed.")
+                
+                # If we get here, restart failed or max retries reached
                 self.is_streaming = False
                 self.should_monitor = False
-                
-                logger.error("❌ Stream crashed! Process terminated unexpectedly.")
                 break
             
             # Sleep before next check
@@ -207,7 +243,7 @@ class StreamService:
         Returns:
             True jika berhasil stop, False jika tidak ada stream
         """
-        if not self.is_streaming or not self.process:
+        if not self.is_streaming and not self.process:
             logger.warning("Tidak ada stream yang berjalan")
             return False
         
@@ -217,16 +253,17 @@ class StreamService:
             # Stop monitoring
             self.should_monitor = False
             
-            # Terminate process
-            self.process.terminate()
-            
-            # Wait for process to finish (max 5 seconds)
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                logger.warning("Process tidak terminate, melakukan kill...")
-                self.process.kill()
-                self.process.wait()
+            if self.process:
+                # Terminate process
+                self.process.terminate()
+                
+                # Wait for process to finish (max 5 seconds)
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Process tidak terminate, melakukan kill...")
+                    self.process.kill()
+                    self.process.wait()
             
             logger.info("✅ Stream berhasil dihentikan")
             
@@ -287,14 +324,7 @@ class StreamService:
     
     def restart_stream(self, video_paths: List[str], playlist_id: int) -> bool:
         """
-        Restart streaming (stop kemudian start lagi).
-        
-        Args:
-            video_paths: List path video
-            playlist_id: ID playlist
-            
-        Returns:
-            True jika berhasil restart
+        Manual restart streaming (stop kemudian start lagi).
         """
         logger.info("Melakukan restart stream...")
         

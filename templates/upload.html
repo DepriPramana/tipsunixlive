@@ -14,6 +14,16 @@
             <div class="card-body">
                 <form id="uploadForm">
                     <div class="mb-4">
+                        <label class="form-label">Video Type</label>
+                        <select class="form-select" id="videoType">
+                            <option value="regular">Regular Video (Content)</option>
+                            <option value="background">Background Loop (Music Playlist)</option>
+                        </select>
+                        <div class="form-text">Select "Background Loop" if this video is intended for music playlists.
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
                         <label class="form-label">Select Video File</label>
                         <input type="file" class="form-control" id="videoFile" accept="video/*" required>
                         <div class="form-text">
@@ -65,12 +75,16 @@
         const progressDiv = document.getElementById('uploadProgress');
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
+        const videoType = document.getElementById('videoType').value;
+
+        // Determine endpoint based on type
+        const endpoint = videoType === 'background' ? '/upload/background' : '/upload';
 
         uploadBtn.disabled = true;
         progressDiv.classList.remove('d-none');
 
         try {
-            const response = await axios.post('/upload', formData, {
+            const response = await axios.post(endpoint, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 },

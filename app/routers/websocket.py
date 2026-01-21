@@ -49,6 +49,15 @@ async def monitoring_ws(websocket: WebSocket):
                 for session in active_sessions:
                     data = session.to_dict()
                     
+                    
+                    # Add process status (restart count)
+                    process_status = ffmpeg_service.get_process_status(session.id)
+                    if process_status:
+                        data['restart_count'] = process_status.get('retry_count', 0)
+                        data['max_retries'] = process_status.get('max_retries', 5)
+                    else:
+                        data['restart_count'] = 0
+
                     # Add real-time stats from FFmpeg log if available
                     # For now, we manually add some stats or extracted from log
                     stats = {

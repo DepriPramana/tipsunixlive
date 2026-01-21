@@ -58,9 +58,10 @@ except ImportError as e:
 
 # Mount static files for thumbnails
 from fastapi.staticfiles import StaticFiles
+from app.config import VIDEO_STORAGE_PATH
 import os
-os.makedirs("videos", exist_ok=True)
-app.mount("/videos", StaticFiles(directory="videos"), name="videos")
+os.makedirs(VIDEO_STORAGE_PATH, exist_ok=True)
+app.mount("/videos", StaticFiles(directory=VIDEO_STORAGE_PATH), name="videos")
 
 def cleanup_zombie_sessions():
     """Mark all 'running' sessions as 'interrupted' on startup"""

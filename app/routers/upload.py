@@ -4,11 +4,12 @@ import shutil
 import os
 from app.database import SessionLocal
 from app.services.video_service import VideoService
+from app.config import VIDEO_STORAGE_PATH
 
 from app.services.auth_service import get_current_user_from_cookie
 
 router = APIRouter(tags=["Video Upload"])
-UPLOAD_DIR = "videos/uploaded"
+UPLOAD_DIR = os.path.join(VIDEO_STORAGE_PATH, "uploaded")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def get_db():
@@ -57,8 +58,9 @@ async def upload_video(
 
 
 # Music and Background Upload Directories
-MUSIC_DIR = "videos/music"
-BACKGROUND_DIR = "videos/backgrounds"
+# Music and Background Upload Directories
+MUSIC_DIR = os.path.join(VIDEO_STORAGE_PATH, "music")
+BACKGROUND_DIR = os.path.join(VIDEO_STORAGE_PATH, "backgrounds")
 os.makedirs(MUSIC_DIR, exist_ok=True)
 os.makedirs(BACKGROUND_DIR, exist_ok=True)
 
@@ -192,28 +194,29 @@ async def list_music_files():
 
 
 @router.get("/backgrounds/list")
-async def list_background_videos():
+async def list_background_videos(db: Session = Depends(get_db)):
     """
     List semua video background yang tersedia.
+    Sekarang mengambil semua video yang terdaftar di database (uploaded, gdrive, dll)
+    agar bisa digunakan sebagai background.
     """
-    if not os.path.exists(BACKGROUND_DIR):
-        return {"files": []}
+    video_service = VideoService(db)
+    videos = video_service.get_all_videos(limit=1000, source="background")
     
     files = []
-    for filename in os.listdir(BACKGROUND_DIR):
-        file_path = os.path.join(BACKGROUND_DIR, filename)
-        if os.path.isfile(file_path):
-            files.append({
-                "filename": filename,
-                "path": file_path,
-                "size": os.path.getsize(file_path)
-            })
+    for video in videos:
+        files.append({
+            "filename": video.name,
+            "path": video.path,
+            "size": video.file_size or 0
+        })
     
     return {"files": files}
 
 
 # Sound Effect Upload
-SOUND_EFFECT_DIR = "videos/sound_effects"
+# Sound Effect Upload
+SOUND_EFFECT_DIR = os.path.join(VIDEO_STORAGE_PATH, "sound_effects")
 os.makedirs(SOUND_EFFECT_DIR, exist_ok=True)
 
 @router.post("/upload/sound-effect")

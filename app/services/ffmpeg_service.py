@@ -30,6 +30,19 @@ class FFmpegService:
         # Log directory
         self.log_dir = "logs/ffmpeg"
         os.makedirs(self.log_dir, exist_ok=True)
+        
+        # Monitor thread
+        self._monitoring = False
+        self._monitor_thread = None
+        self._start_monitor()
+
+    def _start_monitor(self):
+        """Start monitoring thread if not running"""
+        import threading
+        if not self._monitoring:
+            self._monitoring = True
+            self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self._monitor_thread.start()
     
     def start_stream(
         self,
@@ -106,7 +119,15 @@ class FFmpegService:
                 'log_file': log_file,
                 'log_handle': log_handle,
                 'stream_key': stream_key,
-                'started_at': datetime.now()
+                'started_at': datetime.now(),
+                'retry_count': 0,
+                'max_retries': 5,
+                'restart_args': {
+                    'video_paths': video_paths,
+                    'stream_key': stream_key,
+                    'loop': loop,
+                    'mode': mode
+                }
             }
             
             logger.info(f"[OK] FFmpeg started for session {session_id}")
@@ -211,7 +232,9 @@ class FFmpegService:
             'exit_code': poll,
             'log_file': process_data['log_file'],
             'started_at': process_data['started_at'].isoformat(),
-            'uptime_seconds': (datetime.now() - process_data['started_at']).total_seconds()
+            'uptime_seconds': (datetime.now() - process_data['started_at']).total_seconds(),
+            'retry_count': process_data.get('retry_count', 0),
+            'max_retries': process_data.get('max_retries', 5)
         }
     
     def get_all_active_sessions(self) -> List[int]:
@@ -451,7 +474,15 @@ class FFmpegService:
                 'log_handle': log_handle,
                 'stream_key': stream_key,
                 'started_at': datetime.now(),
-                'type': 'music_playlist'  # Mark as music playlist stream
+                'type': 'music_playlist',  # Mark as music playlist stream
+                'retry_count': 0,
+                'max_retries': 5,
+                'restart_args': {
+                    'video_background_path': video_background_path,
+                    'music_files': music_files,
+                    'stream_key': stream_key,
+                    'audio_bitrate': audio_bitrate
+                }
             }
             
             logger.info(f"[OK] Music Playlist Stream started for session {session_id}")
@@ -592,6 +623,101 @@ class FFmpegService:
         
         return lines[-1].strip() if lines else None
 
+
+# ... (Previous code) 
+
+    def _monitor_loop(self):
+        """Loop tracking process health and auto-restarting"""
+        import time
+        logger.info("Starting FFmpeg monitor loop")
+        
+        while self._monitoring:
+            try:
+                # Copy keys to avoid modification during iteration
+                active_ids = list(self.active_processes.keys())
+                
+                for session_id in active_ids:
+                    if session_id not in self.active_processes:
+                        continue
+                        
+                    data = self.active_processes[session_id]
+                    process = data['process']
+                    
+                    if process.poll() is not None:
+                        # Process died
+                        exit_code = process.poll()
+                        logger.warning(f"Session {session_id} - Process died with code {exit_code}")
+                        
+                        # Check retries
+                        if data.get('retry_count', 0) < data.get('max_retries', 5):
+                            # Attempt Restart
+                            data['retry_count'] += 1
+                            retry_count = data['retry_count']
+                            wait_time = 5 * (2 ** (retry_count - 1))
+                            
+                            logger.info(f"Session {session_id} - Scheduled restart {retry_count}/{data['max_retries']} in {wait_time}s")
+                            time.sleep(wait_time)
+                            
+                            # Check if still active (might have been stopped by user during sleep)
+                            if session_id in self.active_processes:
+                                self._restart_session(session_id, data)
+                        else:
+                            # Max retries reached
+                            logger.error(f"Session {session_id} - Max retries reached. Stream failed.")
+                            # Cleanup
+                            self.stop_stream(session_id)
+            
+            except Exception as e:
+                logger.error(f"Error in monitor loop: {e}")
+            
+            time.sleep(2)
+
+    def _restart_session(self, session_id: int, old_data: dict):
+        """Restart a crashed session"""
+        try:
+            logger.info(f"Restarting session {session_id}...")
+            
+            # Cleanup old process resources
+            try:
+                old_data['process'].wait(timeout=1)
+            except: pass
+            try:
+                old_data['log_handle'].close()
+            except: pass
+            
+            # Prepare new args
+            args = old_data.get('restart_args', {})
+            stream_type = old_data.get('type', 'default')
+            
+            new_process = None
+            
+            if stream_type == 'music_playlist':
+                new_process = self.start_music_playlist_stream(
+                    session_id=session_id,
+                    video_background_path=args.get('video_background_path'),
+                    music_files=args.get('music_files'),
+                    stream_key=args.get('stream_key'),
+                    audio_bitrate=args.get('audio_bitrate', '128k')
+                )
+            else:
+                new_process = self.start_stream(
+                    session_id=session_id,
+                    video_paths=args.get('video_paths'),
+                    stream_key=args.get('stream_key'),
+                    loop=args.get('loop', True),
+                    mode=args.get('mode', 'playlist')
+                )
+            
+            if new_process:
+                # Restore retry count
+                if session_id in self.active_processes:
+                    self.active_processes[session_id]['retry_count'] = old_data['retry_count']
+                    logger.info(f"Session {session_id} - Restart successful (New PID: {new_process.pid})")
+            else:
+                logger.error(f"Session {session_id} - Restart failed")
+                
+        except Exception as e:
+            logger.error(f"Session {session_id} - Error during restart: {e}")
 
 # Global instance
 ffmpeg_service = FFmpegService()

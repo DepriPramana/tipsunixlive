@@ -344,17 +344,31 @@ def create_live_setup(
                 
                 return response_data
             
+                return response_data
+            
             except Exception as e:
                 logger.error(f"CRITICAL ERROR in create_live_setup: {str(e)}", exc_info=True)
-                # Rollback not always necessary with SessionLocal but good practice in complex transactions
-                # db.rollback() 
-                raise HTTPException(500, f"Internal Server Error: {str(e)}")
+                
+                # Rollback mechanism: Delete the broadcast from YouTube if DB save failed
+                if broadcast_id:
+                    logger.warning(f"Rolling back: Deleting orphaned broadcast {broadcast_id} from YouTube...")
+                    try:
+                        youtube_api.delete_broadcast(broadcast_id)
+                        logger.info(f"Rollback successful: Broadcast {broadcast_id} deleted.")
+                    except Exception as rb_error:
+                        logger.error(f"Rollback failed: Could not delete broadcast {broadcast_id}. Error: {rb_error}")
+
+                # Rollback DB transaction
+                db.rollback() 
+                raise HTTPException(500, f"Internal Server Error: {str(e)}. (Broadcast rolled back)")
             
         else:
              raise HTTPException(500, "Failed to create broadcast (No result returned)")
         
     except FileNotFoundError as e:
         raise HTTPException(500, str(e))
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(500, f"Error creating live setup: {str(e)}")
 
