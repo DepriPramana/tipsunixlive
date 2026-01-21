@@ -318,7 +318,174 @@
         });
     }
 
-    // ... existing category/format/music loaders ...
+    // Load categories
+    async function loadCategories() {
+        try {
+            const response = await axios.get('/categories/');
+            categories = response.data;
+            renderCategoryFilters();
+            renderCategoriesTable();
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    // Render category filters
+    function renderCategoryFilters() {
+        const categoryFilter = document.getElementById('categoryFilter');
+        const uploadCategory = document.getElementById('uploadCategory');
+        const editCategory = document.getElementById('editCategory');
+
+        const options = '<option value="">All Categories</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+
+        categoryFilter.innerHTML = options;
+        uploadCategory.innerHTML = '<option value="">No Category</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+        editCategory.innerHTML = '<option value="">No Category</option>' +
+            categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+    }
+
+    // Load formats
+    async function loadFormats() {
+        try {
+            const response = await axios.get('/music-files/formats');
+            formats = response.data.formats;
+
+            const formatFilter = document.getElementById('formatFilter');
+            formatFilter.innerHTML = '<option value="">All Formats</option>' +
+                formats.map(fmt => `<option value="${fmt}">${fmt.toUpperCase()}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading formats:', error);
+        }
+    }
+
+    // Load music files
+    async function loadMusicFiles() {
+        try {
+            const search = document.getElementById('searchInput').value;
+            const categoryId = document.getElementById('categoryFilter').value;
+            const format = document.getElementById('formatFilter').value;
+            const sort = document.getElementById('sortSelect').value;
+            const order = document.getElementById('orderSelect').value;
+
+            const params = {
+                page: currentPage,
+                limit: limit,
+                sort: sort,
+                order: order
+            };
+
+            if (search) params.search = search;
+            if (categoryId) params.category_id = categoryId;
+            if (format) params.format = format;
+
+            const response = await axios.get('/music-files/', { params });
+
+            musicFiles = response.data.music_files;
+            totalPages = response.data.total_pages;
+
+            document.getElementById('musicCount').textContent =
+                `Showing ${musicFiles.length} of ${response.data.total} music files`;
+
+            renderMusicTable();
+            renderPagination();
+        } catch (error) {
+            console.error('Error loading music files:', error);
+            showToast('Failed to load music files', 'danger');
+        }
+    }
+
+    // Render music table
+    function renderMusicTable() {
+        const tbody = document.getElementById('musicTableBody');
+
+        if (musicFiles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No music files found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = musicFiles.map(music => `
+            <tr>
+                <td>
+                    <i class="bi bi-music-note-beamed text-primary"></i>
+                    ${music.filename}
+                    ${music.tags && music.tags.length > 0 ?
+                '<br><small class="text-muted">' + music.tags.map(tag =>
+                    `<span class="badge bg-secondary">${tag}</span>`
+                ).join(' ') + '</small>' : ''}
+                </td>
+                <td>
+                    ${music.category_name ?
+                `<span class="badge" style="background-color: ${music.category_color}">${music.category_name}</span>` :
+                '<span class="text-muted">-</span>'}
+                </td>
+                <td>${formatDuration(music.duration)}</td>
+                <td>${formatFileSize(music.file_size)}</td>
+                <td><span class="badge bg-info">${music.format.toUpperCase()}</span></td>
+                <td><small>${new Date(music.uploaded_at).toLocaleDateString()}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditMusic(${music.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMusic(${music.id}, '${music.filename}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Render pagination
+    function renderPagination() {
+        const paginationNav = document.getElementById('paginationNav');
+        const paginationList = document.getElementById('paginationList');
+
+        if (totalPages <= 1) {
+            paginationNav.style.display = 'none';
+            return;
+        }
+
+        paginationNav.style.display = 'block';
+
+        let html = '';
+
+        // Previous button
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
+        </li>`;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                </li>`;
+            } else if (i === currentPage - 3 || i === currentPage + 3) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
+        }
+
+        // Next button
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
+        </li>`;
+
+        paginationList.innerHTML = html;
+    }
+
+    // Change page
+    function changePage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadMusicFiles();
+    }
+
+    // Refresh music list
+    function refreshMusicList() {
+        loadMusicFiles();
+        showToast('Music list refreshed', 'success');
+    }
 
     // Upload music files (Sequential)
     async function uploadMusicFiles() {
