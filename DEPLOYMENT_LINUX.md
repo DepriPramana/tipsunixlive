@@ -108,6 +108,7 @@ server {
     server_name your_server_ip;
 
     location / {
+        client_max_body_size 500M;
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

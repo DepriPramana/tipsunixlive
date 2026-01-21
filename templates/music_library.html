@@ -122,15 +122,21 @@
                     </select>
                 </div>
 
+                <!-- File List Preview -->
+                <div id="uploadFileList" class="list-group mt-3" style="max-height: 300px; overflow-y: auto; display: none;">
+                    <!-- Files will be listed here -->
+                </div>
+
                 <!-- Upload Progress -->
-                <div id="uploadProgress" style="display: none;">
-                    <h6>Upload Progress</h6>
-                    <div id="uploadProgressList"></div>
+                <div id="uploadProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="uploadMusicFiles()">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="uploadMusicFiles()" id="btnUpload">
                     <i class="bi bi-cloud-upload"></i> Upload
                 </button>
             </div>
@@ -277,7 +283,38 @@
 
         document.getElementById('sortSelect').addEventListener('change', loadMusicFiles);
         document.getElementById('orderSelect').addEventListener('change', loadMusicFiles);
+        
+        // File selection handler
+        document.getElementById('musicFilesInput').addEventListener('change', handleFileSelect);
     });
+
+    // Handle file selection for upload
+    function handleFileSelect(event) {
+        const files = event.target.files;
+        const listContainer = document.getElementById('uploadFileList');
+        
+        if (files.length === 0) {
+            listContainer.style.display = 'none';
+            return;
+        }
+
+        listContainer.innerHTML = '';
+        listContainer.style.display = 'block';
+
+        Array.from(files).forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center';
+            item.innerHTML = `
+                <div>
+                    <i class="bi bi-music-note"></i> 
+                    <span class="ms-2">${file.name}</span>
+                    <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                </div>
+                <span class="badge bg-secondary" id="status-${index}">Pending</span>
+            `;
+            listContainer.appendChild(item);
+        });
+    }
 
     // Load categories
     async function loadCategories() {
@@ -452,46 +489,98 @@
     async function uploadMusicFiles() {
         const filesInput = document.getElementById('musicFilesInput');
         const categoryId = document.getElementById('uploadCategory').value;
+        const btnUpload = document.getElementById('btnUpload');
 
         if (!filesInput.files || filesInput.files.length === 0) {
             showToast('Please select files to upload', 'danger');
             return;
         }
 
+        const files = Array.from(filesInput.files);
+        const totalFiles = files.length;
+        
+        // Disable button
+        btnUpload.disabled = true;
+        btnUpload.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
+        
+        document.getElementById('uploadProgress').style.display = 'block';
+        
+        // Update all status to uploading
+        files.forEach((_, index) => {
+             const badge = document.getElementById(`status-${index}`);
+             if (badge) {
+                 badge.className = 'badge bg-primary';
+                 badge.textContent = 'Uploading...';
+             }
+        });
+
         const formData = new FormData();
-        for (let file of filesInput.files) {
+        files.forEach(file => {
             formData.append('files', file);
-        }
+        });
+        
         if (categoryId) {
             formData.append('category_id', categoryId);
         }
 
         try {
-            document.getElementById('uploadProgress').style.display = 'block';
-            document.getElementById('uploadProgressList').innerHTML =
-                '<div class="spinner-border spinner-border-sm" role="status"></div> Uploading...';
-
             const response = await axios.post('/music-files/bulk-upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
             const result = response.data;
+            const resultsMap = {
+                success: new Set(result.results.success.map(i => i.filename)),
+                failed: new Map(result.results.failed.map(i => [i.filename, i.error])),
+                skipped: new Map(result.results.skipped.map(i => [i.filename, i.reason]))
+            };
+
+            // Update UI based on results
+            files.forEach((file, index) => {
+                const badge = document.getElementById(`status-${index}`);
+                if (!badge) return;
+
+                if (resultsMap.success.has(file.name)) {
+                    badge.className = 'badge bg-success';
+                    badge.textContent = 'Success';
+                } else if (resultsMap.failed.has(file.name)) {
+                    badge.className = 'badge bg-danger';
+                    badge.textContent = 'Failed';
+                    badge.title = resultsMap.failed.get(file.name);
+                } else if (resultsMap.skipped.has(file.name)) {
+                    badge.className = 'badge bg-warning text-dark';
+                    badge.textContent = 'Skipped';
+                    badge.title = resultsMap.skipped.get(file.name);
+                }
+            });
 
             let message = `Upload complete: ${result.success_count} succeeded`;
             if (result.failed_count > 0) message += `, ${result.failed_count} failed`;
             if (result.skipped_count > 0) message += `, ${result.skipped_count} skipped`;
 
             showToast(message, result.failed_count > 0 ? 'warning' : 'success');
+            
+            // Reload list and Reset input after short delay if all successful
+            if (result.failed_count === 0 && result.skipped_count === 0) {
+                 setTimeout(() => {
+                     bootstrap.Modal.getInstance(document.getElementById('uploadMusicModal')).hide();
+                     filesInput.value = '';
+                     document.getElementById('uploadFileList').style.display = 'none';
+                     document.getElementById('uploadProgress').style.display = 'none';
+                     loadMusicFiles();
+                     loadFormats();
+                 }, 1500);
+            } else {
+                 loadMusicFiles();
+                 loadFormats();
+            }
 
-            bootstrap.Modal.getInstance(document.getElementById('uploadMusicModal')).hide();
-            filesInput.value = '';
-            document.getElementById('uploadProgress').style.display = 'none';
-
-            loadMusicFiles();
-            loadFormats();
         } catch (error) {
             showToast(error.response?.data?.detail || 'Upload failed', 'danger');
             document.getElementById('uploadProgress').style.display = 'none';
+        } finally {
+            btnUpload.disabled = false;
+            btnUpload.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload';
         }
     }
 
