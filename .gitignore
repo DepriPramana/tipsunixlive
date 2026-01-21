@@ -15,9 +15,9 @@ __pycache__/
 venv/
 .venv/
 logs/
-backgrounds/
-downloads/
-music/
-thumbnails/
-uploaded/    
-sound_effects/
+backgrounds/.*
+downloads/.*
+music/.*
+thumbnails/.*
+uploaded/.*
+sound_effects/.*
