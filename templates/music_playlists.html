@@ -698,30 +698,60 @@
     function filterEditMusicFiles() {
         const searchTerm = document.getElementById('editMusicSearch')?.value.toLowerCase() || '';
         const categoryId = document.getElementById('editCategoryFilter')?.value || '';
-        // Scoped to edit container
-        const items = document.querySelectorAll('#editMusicFilesContainer .music-file-item');
+        const container = document.getElementById('editMusicFilesContainer');
 
-        console.log('[Edit] Filter applied - Category ID:', categoryId);
-        let visibleCount = 0;
+        // Get current checkbox states before re-render
+        const checkedPaths = Array.from(document.querySelectorAll('.edit-music-file-checkbox:checked')).map(cb => cb.value);
 
-        items.forEach(item => {
-            const filename = item.getAttribute('data-filename');
-            const itemCategory = item.getAttribute('data-category');
-
-            const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            // Convert both to strings and trim for comparison
-            const matchesCategory = !categoryId || String(itemCategory).trim() === String(categoryId).trim();
-
-            if (matchesSearch && matchesCategory) {
-                item.style.display = 'block';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
+        // Filter files
+        const filteredFiles = musicFiles.filter(file => {
+            const matchesSearch = !searchTerm || file.filename.toLowerCase().includes(searchTerm);
+            const matchesCategory = !categoryId || String(file.category_id).trim() === String(categoryId).trim();
+            return matchesSearch && matchesCategory;
         });
 
-        console.log('[Edit] Visible items:', visibleCount, 'Total items:', items.length);
-        updateEditMusicCount();
+        console.log('[Edit] Filter applied - Category:', categoryId, 'Visible:', filteredFiles.length, 'Total:', musicFiles.length);
+
+        if (filteredFiles.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No files match the current filter.</p>';
+        } else {
+            container.innerHTML = `<div class="list-group list-group-flush">` + filteredFiles.map((file, index) => {
+                const path = file.file_path || file.path;
+                const size = file.file_size || file.size;
+                const isSelected = checkedPaths.includes(path);
+                const categoryBadge = file.category_name ?
+                    `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
+                const duration = file.duration ? formatDuration(file.duration) : '';
+
+                return `
+                    <label class="list-group-item list-group-item-action music-file-item d-flex align-items-center gap-3 py-2 border-0 rounded mb-1 ${index % 2 === 0 ? 'bg-white' : 'bg-light'}" 
+                        style="cursor: pointer;"
+                        data-filename="${file.filename.toLowerCase()}" 
+                        data-category="${file.category_id || ''}">
+                        <input class="form-check-input edit-music-file-checkbox flex-shrink-0 my-0" type="checkbox" 
+                               value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''} style="width: 1.2rem; height: 1.2rem;">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-baseline">
+                                <span class="fw-medium text-truncate" title="${file.filename}">${file.filename}</span>
+                                ${categoryBadge}
+                            </div>
+                            <div class="small text-muted d-flex gap-2">
+                                <span><i class="bi bi-clock"></i> ${duration || '--:--'}</span>
+                                <span><i class="bi bi-hdd"></i> ${formatFileSize(size)}</span>
+                            </div>
+                        </div>
+                    </label>
+                `;
+            }).join('') + `</div>`;
+        }
+
+        // Update count
+        const total = musicFiles.length;
+        const visible = filteredFiles.length;
+        const countEl = document.getElementById('editMusicFileCount');
+        if (countEl) {
+            countEl.textContent = visible < total ? `Showing ${visible} of ${total} files` : `${total} files`;
+        }
     }
 
     // Select all visible music (Create Modal)
@@ -1189,34 +1219,59 @@
             if (musicFiles.length === 0) {
                 container.innerHTML = '<p class="text-muted text-center">No music files available</p>';
             } else {
-                container.innerHTML = `<div class="list-group list-group-flush">` + musicFiles.map((file, index) => {
-                    const path = file.file_path || file.path;
-                    const size = file.file_size || file.size;
-                    const isSelected = playlist.music_files.includes(path);
-                    const categoryBadge = file.category_name ?
-                        `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
-                    const duration = file.duration ? formatDuration(file.duration) : '';
+                // Get current filter values (will be empty on first open)
+                const searchTerm = document.getElementById('editMusicSearch')?.value.toLowerCase() || '';
+                const categoryId = document.getElementById('editCategoryFilter')?.value || '';
 
-                    return `
-                        <label class="list-group-item list-group-item-action music-file-item d-flex align-items-center gap-3 py-2 border-0 rounded mb-1 ${index % 2 === 0 ? 'bg-white' : 'bg-light'}" 
-                            style="cursor: pointer;"
-                            data-filename="${file.filename.toLowerCase()}" 
-                            data-category="${file.category_id || ''}">
-                            <input class="form-check-input edit-music-file-checkbox flex-shrink-0 my-0" type="checkbox" 
-                                   value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''} style="width: 1.2rem; height: 1.2rem;">
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="d-flex justify-content-between align-items-baseline">
-                                    <span class="fw-medium text-truncate" title="${file.filename}">${file.filename}</span>
-                                    ${categoryBadge}
+                // Filter files during rendering
+                const filteredFiles = musicFiles.filter(file => {
+                    const matchesSearch = !searchTerm || file.filename.toLowerCase().includes(searchTerm);
+                    const matchesCategory = !categoryId || String(file.category_id).trim() === String(categoryId).trim();
+                    return matchesSearch && matchesCategory;
+                });
+
+                console.log('[Edit] Rendering with filter - Category:', categoryId, 'Visible:', filteredFiles.length, 'Total:', musicFiles.length);
+
+                if (filteredFiles.length === 0 && (searchTerm || categoryId)) {
+                    container.innerHTML = '<p class="text-muted text-center">No files match the current filter.</p>';
+                } else {
+                    container.innerHTML = `<div class="list-group list-group-flush">` + filteredFiles.map((file, index) => {
+                        const path = file.file_path || file.path;
+                        const size = file.file_size || file.size;
+                        const isSelected = playlist.music_files.includes(path);
+                        const categoryBadge = file.category_name ?
+                            `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
+                        const duration = file.duration ? formatDuration(file.duration) : '';
+
+                        return `
+                            <label class="list-group-item list-group-item-action music-file-item d-flex align-items-center gap-3 py-2 border-0 rounded mb-1 ${index % 2 === 0 ? 'bg-white' : 'bg-light'}" 
+                                style="cursor: pointer;"
+                                data-filename="${file.filename.toLowerCase()}" 
+                                data-category="${file.category_id || ''}">
+                                <input class="form-check-input edit-music-file-checkbox flex-shrink-0 my-0" type="checkbox" 
+                                       value="${path}" id="editMusic${index}" ${isSelected ? 'checked' : ''} style="width: 1.2rem; height: 1.2rem;">
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between align-items-baseline">
+                                        <span class="fw-medium text-truncate" title="${file.filename}">${file.filename}</span>
+                                        ${categoryBadge}
+                                    </div>
+                                    <div class="small text-muted d-flex gap-2">
+                                        <span><i class="bi bi-clock"></i> ${duration || '--:--'}</span>
+                                        <span><i class="bi bi-hdd"></i> ${formatFileSize(size)}</span>
+                                    </div>
                                 </div>
-                                <div class="small text-muted d-flex gap-2">
-                                    <span><i class="bi bi-clock"></i> ${duration || '--:--'}</span>
-                                    <span><i class="bi bi-hdd"></i> ${formatFileSize(size)}</span>
-                                </div>
-                            </div>
-                        </label>
-                    `;
-                }).join('') + `</div>`;
+                            </label>
+                        `;
+                    }).join('') + `</div>`;
+                }
+
+                // Update count
+                const total = musicFiles.length;
+                const visible = filteredFiles.length;
+                const countEl = document.getElementById('editMusicFileCount');
+                if (countEl) {
+                    countEl.textContent = visible < total ? `Showing ${visible} of ${total} files` : `${total} files`;
+                }
             }
 
             // Show modal
