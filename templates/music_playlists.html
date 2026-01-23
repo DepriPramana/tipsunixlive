@@ -671,16 +671,26 @@
         // Scoped to create container
         const items = document.querySelectorAll('#musicFilesContainer .music-file-item');
 
+        console.log('Filter applied - Category ID:', categoryId);
+        let visibleCount = 0;
+
         items.forEach(item => {
             const filename = item.getAttribute('data-filename');
             const itemCategory = item.getAttribute('data-category');
 
             const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            const matchesCategory = !categoryId || itemCategory === String(categoryId);
+            // Convert both to strings and trim for comparison
+            const matchesCategory = !categoryId || String(itemCategory).trim() === String(categoryId).trim();
 
-            item.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+            if (matchesSearch && matchesCategory) {
+                item.style.display = 'block';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
         });
 
+        console.log('Visible items:', visibleCount, 'Total items:', items.length);
         updateMusicCount();
     }
 
@@ -691,16 +701,26 @@
         // Scoped to edit container
         const items = document.querySelectorAll('#editMusicFilesContainer .music-file-item');
 
+        console.log('[Edit] Filter applied - Category ID:', categoryId);
+        let visibleCount = 0;
+
         items.forEach(item => {
             const filename = item.getAttribute('data-filename');
             const itemCategory = item.getAttribute('data-category');
 
             const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            const matchesCategory = !categoryId || itemCategory === String(categoryId);
+            // Convert both to strings and trim for comparison
+            const matchesCategory = !categoryId || String(itemCategory).trim() === String(categoryId).trim();
 
-            item.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+            if (matchesSearch && matchesCategory) {
+                item.style.display = 'block';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
         });
 
+        console.log('[Edit] Visible items:', visibleCount, 'Total items:', items.length);
         updateEditMusicCount();
     }
 
