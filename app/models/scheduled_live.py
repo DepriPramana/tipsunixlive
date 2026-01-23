@@ -16,6 +16,7 @@ class ScheduledLive(Base):
     stream_key_id = Column(Integer, ForeignKey('stream_keys.id'), nullable=False)
     video_id = Column(Integer, ForeignKey('videos.id'), nullable=True)
     playlist_id = Column(Integer, ForeignKey('playlists.id'), nullable=True)
+    music_playlist_id = Column(Integer, ForeignKey('music_playlists.id'), nullable=True)
     
     # Schedule info
     scheduled_time = Column(DateTime, nullable=False)
@@ -44,6 +45,7 @@ class ScheduledLive(Base):
     stream_key = relationship("StreamKey", backref="scheduled_lives")
     video = relationship("Video", backref="scheduled_lives")
     playlist = relationship("Playlist", backref="scheduled_lives")
+    music_playlist = relationship("MusicPlaylist", backref="scheduled_lives")
     live_session = relationship("LiveSession", backref="scheduled_lives")
     
     def to_dict(self):
@@ -53,6 +55,7 @@ class ScheduledLive(Base):
             'stream_key_id': self.stream_key_id,
             'video_id': self.video_id,
             'playlist_id': self.playlist_id,
+            'music_playlist_id': self.music_playlist_id,
             # Ensure output is marked as UTC so frontend converts to local time correctly
             'scheduled_time': self.scheduled_time.replace(tzinfo=datetime_timezone.utc).isoformat() if self.scheduled_time else None,
             'mode': self.mode,

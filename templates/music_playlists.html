@@ -1158,10 +1158,12 @@
         try {
             showToast('Scheduling music playlist stream...', 'info');
 
-            await axios.post('/live/schedule-music-playlist', {
+            await axios.post('/live/schedule', {
                 music_playlist_id: parseInt(playlistId),
                 stream_key_id: parseInt(streamKeyId),
                 scheduled_time: scheduledTime,
+                mode: 'music_playlist',
+                loop: true,
                 max_duration_hours: parseInt(duration),
                 recurrence: recurrence
             });

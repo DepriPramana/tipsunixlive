@@ -47,6 +47,7 @@ class ScheduleLiveRequest(BaseModel):
     stream_key_id: int
     video_id: Optional[int] = None
     playlist_id: Optional[int] = None
+    music_playlist_id: Optional[int] = None
     scheduled_time: datetime
     mode: str = 'playlist'
     loop: bool = True
@@ -253,6 +254,7 @@ def schedule_live(
             scheduled_time=request.scheduled_time.replace(tzinfo=None),  # Remove TZ info for consistent storage
             video_id=request.video_id,
             playlist_id=request.playlist_id,
+            music_playlist_id=request.music_playlist_id,
             mode=request.mode,
             loop=request.loop,
             recurrence=request.recurrence,

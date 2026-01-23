@@ -38,6 +38,7 @@ class LiveSchedulerService:
         scheduled_time: datetime,
         video_id: Optional[int] = None,
         playlist_id: Optional[int] = None,
+        music_playlist_id: Optional[int] = None,
         mode: str = 'playlist',
         loop: bool = True,
         recurrence: str = 'none',
@@ -87,6 +88,7 @@ class LiveSchedulerService:
         scheduled_live.stream_key_id = stream_key_id
         scheduled_live.video_id = video_id
         scheduled_live.playlist_id = playlist_id
+        scheduled_live.music_playlist_id = music_playlist_id
         scheduled_live.scheduled_time = scheduled_time
         scheduled_live.mode = mode
         scheduled_live.loop = loop
@@ -124,6 +126,7 @@ class LiveSchedulerService:
         scheduled_time: datetime,
         video_id: Optional[int] = None,
         playlist_id: Optional[int] = None,
+        music_playlist_id: Optional[int] = None,
         mode: str = 'playlist',
         loop: bool = True,
         recurrence: str = 'none',
@@ -156,18 +159,22 @@ class LiveSchedulerService:
         if not stream_key.is_active:
             raise ValueError(f"Stream key '{stream_key.name}' is not active")
         
-        # Validate video/playlist
+        # Validate video/playlist/music_playlist
         if mode == 'single' and not video_id:
             raise ValueError("video_id required for single mode")
         
         if mode == 'playlist' and not playlist_id:
             raise ValueError("playlist_id required for playlist mode")
         
+        if mode == 'music_playlist' and not music_playlist_id:
+            raise ValueError("music_playlist_id required for music_playlist mode")
+        
         # Create scheduled live record
         scheduled_live = ScheduledLive(
             stream_key_id=stream_key_id,
             video_id=video_id,
             playlist_id=playlist_id,
+            music_playlist_id=music_playlist_id,
             scheduled_time=scheduled_time,
             mode=mode,
             loop=loop,
@@ -308,11 +315,38 @@ class LiveSchedulerService:
                 # This is allowed - no collision check needed for playlist
                 logger.info(f"Using playlist: {playlist.name} ({len(video_paths)} videos)")
             
+            # Handle music_playlist mode
+            music_files = []
+            music_playlist = None
+            
+            if scheduled_live.mode == 'music_playlist':
+                from app.models.music_playlist import MusicPlaylist
+                from app.services.music_playlist_service import MusicPlaylistService
+                
+                music_playlist = db.query(MusicPlaylist).filter(
+                    MusicPlaylist.id == scheduled_live.music_playlist_id
+                ).first()
+                
+                if not music_playlist:
+                    raise Exception(f"Music playlist {scheduled_live.music_playlist_id} not found")
+                
+                music_playlist_service = MusicPlaylistService(db)
+                music_files = music_playlist_service.get_music_files(
+                    scheduled_live.music_playlist_id,
+                    shuffle=(music_playlist.mode == 'random')
+                )
+                
+                if not music_files:
+                    raise Exception(f"Music playlist {scheduled_live.music_playlist_id} has no music files")
+                
+                logger.info(f"Using music playlist: {music_playlist.name} ({len(music_files)} music files)")
+            
             # Create live session
             live_session = LiveSession(
                 stream_key_id=scheduled_live.stream_key_id,
                 video_id=scheduled_live.video_id,
                 playlist_id=scheduled_live.playlist_id,
+                music_playlist_id=scheduled_live.music_playlist_id,
                 mode=scheduled_live.mode,
                 status='starting',
                 max_duration_hours=scheduled_live.max_duration_hours,
@@ -325,14 +359,23 @@ class LiveSchedulerService:
             
             logger.info(f"Created live session {live_session.id}")
             
-            # Start FFmpeg
-            process = ffmpeg_service.start_stream(
-                session_id=live_session.id,
-                video_paths=video_paths,
-                stream_key=stream_key.get_full_key(),
-                loop=scheduled_live.loop,
-                mode=scheduled_live.mode
-            )
+            # Start FFmpeg - different logic for music_playlist mode
+            if scheduled_live.mode == 'music_playlist':
+                process = ffmpeg_service.start_music_playlist_stream(
+                    session_id=live_session.id,
+                    video_background_path=music_playlist.video_background_path,
+                    music_files=music_files,
+                    stream_key=stream_key.get_full_key(),
+                    audio_bitrate="128k"
+                )
+            else:
+                process = ffmpeg_service.start_stream(
+                    session_id=live_session.id,
+                    video_paths=video_paths,
+                    stream_key=stream_key.get_full_key(),
+                    loop=scheduled_live.loop,
+                    mode=scheduled_live.mode
+                )
             
             if not process:
                 raise Exception("Failed to start FFmpeg process")
@@ -366,6 +409,7 @@ class LiveSchedulerService:
                         scheduled_time=next_time,
                         video_id=scheduled_live.video_id,
                         playlist_id=scheduled_live.playlist_id,
+                        music_playlist_id=scheduled_live.music_playlist_id,
                         mode=scheduled_live.mode,
                         loop=scheduled_live.loop,
                         recurrence=scheduled_live.recurrence,
