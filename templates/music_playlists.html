@@ -612,7 +612,26 @@
             return;
         }
 
-        container.innerHTML = `<div class="list-group list-group-flush">` + musicFiles.map((file, index) => {
+        // Get current filter values
+        const searchTerm = document.getElementById('createMusicSearch')?.value.toLowerCase() || '';
+        const categoryId = document.getElementById('createCategoryFilter')?.value || '';
+
+        // Filter files during rendering
+        const filteredFiles = musicFiles.filter(file => {
+            const matchesSearch = !searchTerm || file.filename.toLowerCase().includes(searchTerm);
+            const matchesCategory = !categoryId || String(file.category_id).trim() === String(categoryId).trim();
+            return matchesSearch && matchesCategory;
+        });
+
+        console.log('Rendering with filter - Category:', categoryId, 'Visible:', filteredFiles.length, 'Total:', musicFiles.length);
+
+        if (filteredFiles.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No files match the current filter.</p>';
+            document.getElementById('musicFilesCount').textContent = '0 files';
+            return;
+        }
+
+        container.innerHTML = `<div class="list-group list-group-flush">` + filteredFiles.map((file, index) => {
             const categoryBadge = file.category_name ?
                 `<span class="badge rounded-pill bg-light text-dark border ms-2 small">${file.category_name}</span>` : '';
             const duration = file.duration ? formatDuration(file.duration) : '';
@@ -639,15 +658,17 @@
             `;
         }).join('') + `</div>`;
 
-        updateMusicCount();
-
-        // Apply current filter after rendering
-        filterMusicFiles();
+        // Update count
+        const total = musicFiles.length;
+        const visible = filteredFiles.length;
+        const countEl = document.getElementById('musicFilesCount');
+        if (countEl) {
+            countEl.textContent = visible < total ? `Showing ${visible} of ${total} files` : `${total} files`;
+        }
     }
 
     // Update music count (Create Modal)
     function updateMusicCount() {
-        // Scoped to create music container
         const total = musicFiles.length;
         const visible = document.querySelectorAll('#musicFilesContainer .music-file-item:not([style*="display: none"])').length;
         const countEl = document.getElementById('musicFilesCount');
@@ -669,32 +690,8 @@
 
     // Filter music files (Create Modal)
     function filterMusicFiles() {
-        const searchTerm = document.getElementById('createMusicSearch')?.value.toLowerCase() || '';
-        const categoryId = document.getElementById('createCategoryFilter')?.value || '';
-        // Scoped to create container
-        const items = document.querySelectorAll('#musicFilesContainer .music-file-item');
-
-        console.log('Filter applied - Category ID:', categoryId);
-        let visibleCount = 0;
-
-        items.forEach(item => {
-            const filename = item.getAttribute('data-filename');
-            const itemCategory = item.getAttribute('data-category');
-
-            const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            // Convert both to strings and trim for comparison
-            const matchesCategory = !categoryId || String(itemCategory).trim() === String(categoryId).trim();
-
-            if (matchesSearch && matchesCategory) {
-                item.style.display = 'block';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-
-        console.log('Visible items:', visibleCount, 'Total items:', items.length);
-        updateMusicCount();
+        // Filtering is now done in renderMusicFiles
+        renderMusicFiles();
     }
 
     // Filter Edit Music Files
