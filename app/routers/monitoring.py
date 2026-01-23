@@ -160,6 +160,8 @@ def get_system_stats():
         },
         'memory': {
             'percent': memory.percent,
+            'used_gb': round(memory.used / (1024**3), 2),
+            'total_gb': round(memory.total / (1024**3), 2)
         },
         'disk': {
             'percent': disk.percent,

@@ -676,7 +676,7 @@
             const itemCategory = item.getAttribute('data-category');
 
             const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            const matchesCategory = !categoryId || itemCategory === categoryId;
+            const matchesCategory = !categoryId || itemCategory === String(categoryId);
 
             item.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
         });
@@ -696,7 +696,7 @@
             const itemCategory = item.getAttribute('data-category');
 
             const matchesSearch = !searchTerm || filename.includes(searchTerm);
-            const matchesCategory = !categoryId || itemCategory === categoryId;
+            const matchesCategory = !categoryId || itemCategory === String(categoryId);
 
             item.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
         });
