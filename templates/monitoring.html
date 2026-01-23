@@ -274,25 +274,30 @@
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <a href="/dashboard/stream-keys" class="btn btn-outline-primary w-100">
                             <i class="bi bi-key"></i> Stream Keys
                         </a>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <a href="/admin/live" class="btn btn-outline-success w-100">
                             <i class="bi bi-play-circle"></i> Start Live
                         </a>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <a href="/admin/calendar" class="btn btn-outline-warning w-100">
                             <i class="bi bi-calendar-event"></i> Schedule Live
                         </a>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <a href="/admin/history" class="btn btn-outline-info w-100">
                             <i class="bi bi-clock-history"></i> History
                         </a>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary w-100" onclick="openAllLogsViewer()">
+                            <i class="bi bi-file-earmark-text"></i> FFmpeg Logs
+                        </button>
                     </div>
                 </div>
             </div>
@@ -318,19 +323,66 @@
         </div>
     </div>
 </div>
-<!-- Log Viewer Modal -->
+<!-- Log Viewer Modal (Enhanced) -->
 <div class="modal fade" id="logModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
                 <h5 class="modal-title font-monospace" id="logTitle">FFmpeg Logs</h5>
+                <div class="btn-group btn-group-sm me-3" role="group">
+                    <button type="button" class="btn btn-outline-light" onclick="refreshLogs()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button type="button" class="btn btn-outline-light" id="autoRefreshBtn"
+                        onclick="toggleAutoRefresh()">
+                        <i class="bi bi-play"></i> Auto Refresh
+                    </button>
+                    <button type="button" class="btn btn-outline-light" id="downloadLogBtn"
+                        onclick="downloadCurrentLog()">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+                <select class="form-select form-select-sm w-auto me-3" id="logLinesSelect" onchange="refreshLogs()">
+                    <option value="50">Last 50 lines</option>
+                    <option value="100" selected>Last 100 lines</option>
+                    <option value="200">Last 200 lines</option>
+                    <option value="500">Last 500 lines</option>
+                    <option value="1000">Last 1000 lines</option>
+                </select>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                     aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
                 <div id="logContent" class="p-3 font-monospace small"
                     style="background-color: #1e1e1e; color: #d4d4d4; white-space: pre-wrap; height: 70vh; overflow-y: auto;">
-                    <!-- Logs will appear here -->
+                    <div class="text-center text-muted mt-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading logs...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Logs Viewer Modal -->
+<div class="modal fade" id="allLogsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-text"></i> All FFmpeg Log Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="allLogsContent">
+                    <div class="text-center text-muted mt-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading log files...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -580,42 +632,189 @@
         });
     }
 
-    // Log Viewer logic
-    let logWs;
-    function openLogViewer(sessionId, title) {
+    // Log Viewer logic (REST API based)
+    let currentSessionId = null;
+    let currentSessionTitle = '';
+    let autoRefreshInterval = null;
+
+    async function openLogViewer(sessionId, title) {
+        currentSessionId = sessionId;
+        currentSessionTitle = title;
+
         const modal = new bootstrap.Modal(document.getElementById('logModal'));
-        document.getElementById('logTitle').textContent = `FFmpeg Logs: ${title}`;
-        const logContent = document.getElementById('logContent');
-        logContent.innerHTML = ''; // Clear logs
+        document.getElementById('logTitle').textContent = `FFmpeg Logs: ${title} (Session #${sessionId})`;
         modal.show();
 
-        // Connect WebSocket
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        logWs = new WebSocket(`${protocol}//${window.location.host}/ws/logs/${sessionId}`);
-
-        logWs.onopen = () => {
-            logContent.innerHTML += '<div class="text-success">--- Connected to Log Stream ---</div>';
-        };
-
-        logWs.onmessage = (event) => {
-            const line = document.createElement('div');
-            line.textContent = event.data;
-            logContent.appendChild(line);
-            // Auto scroll
-            logContent.scrollTop = logContent.scrollHeight;
-        };
-
-        logWs.onclose = () => {
-            logContent.innerHTML += '<div class="text-warning">--- Connection Closed ---</div>';
-        };
-
-        // Clean up on close
-        document.getElementById('logModal').addEventListener('hidden.bs.modal', function () {
-            if (logWs) {
-                logWs.close();
-            }
-        });
+        await refreshLogs();
     }
+
+    async function refreshLogs() {
+        if (!currentSessionId) return;
+
+        const lines = document.getElementById('logLinesSelect').value;
+        const logContent = document.getElementById('logContent');
+
+        try {
+            const response = await axios.get(`/dashboard/monitoring/logs/${currentSessionId}?lines=${lines}`);
+            const data = response.data;
+
+            if (data.success) {
+                // Format log content with syntax highlighting
+                logContent.innerHTML = formatLogContent(data.log_content);
+                // Auto scroll to bottom
+                logContent.scrollTop = logContent.scrollHeight;
+            } else {
+                logContent.innerHTML = `<div class="text-danger">${data.message}</div>`;
+            }
+        } catch (error) {
+            logContent.innerHTML = `<div class="text-danger">Error loading logs: ${error.message}</div>`;
+        }
+    }
+
+    function formatLogContent(content) {
+        if (!content) return `<div class="text-muted">No logs available</div>`;
+
+        // Add syntax highlighting for common log patterns
+        let formatted = content
+            .replace(/error/gi, `<span style="color: #f48771">$&\u003c/span>`)
+            .replace(/warning/gi, `<span style="color: #dcdcaa">$&\u003c/span>`)
+            .replace(/failed/gi, `<span style="color: #f48771">$&\u003c/span>`)
+            .replace(/success/gi, `<span style="color: #6a9955">$&\u003c/span>`)
+            .replace(/\d{2}:\d{2}:\d{2}/g, `<span style="color: #569cd6">$&\u003c/span>`); // timestamps
+
+        return formatted;
+    }
+
+    function toggleAutoRefresh() {
+        const btn = document.getElementById('autoRefreshBtn');
+
+        if (autoRefreshInterval) {
+            // Stop auto refresh
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            btn.innerHTML = `<i class="bi bi-play"></i> Auto Refresh`;
+            btn.classList.remove('active');
+        } else {
+            // Start auto refresh (every 2 seconds)
+            autoRefreshInterval = setInterval(refreshLogs, 2000);
+            btn.innerHTML = `<i class="bi bi-pause"></i> Auto Refresh`;
+            btn.classList.add('active');
+        }
+    }
+
+    function downloadCurrentLog() {
+        if (!currentSessionId) return;
+
+        // Find the log file for this session
+        axios.get('/dashboard/monitoring/logs')
+            .then(response => {
+                const logFiles = response.data.log_files;
+                const sessionLogFile = logFiles.find(f => f.filename.includes(`session_${currentSessionId}_`));
+
+                if (sessionLogFile) {
+                    window.open(`/dashboard/monitoring/logs/download/${sessionLogFile.filename}`, '_blank');
+                } else {
+                    showToast('Log file not found for this session', 'warning');
+                }
+            })
+            .catch(error => {
+                showToast('Error finding log file', 'danger');
+            });
+    }
+
+    // All Logs Viewer
+    async function openAllLogsViewer() {
+        const modal = new bootstrap.Modal(document.getElementById('allLogsModal'));
+        modal.show();
+
+        const container = document.getElementById('allLogsContent');
+
+        try {
+            const response = await axios.get('/dashboard/monitoring/logs');
+            const data = response.data;
+
+            if (data.log_files.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <p class="mt-3">No log files found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Size</th>
+                                <th>Modified</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            data.log_files.forEach(file => {
+                // Extract session ID from filename
+                const match = file.filename.match(/session_(\d+)_/);
+                const sessionId = match ? match[1] : null;
+
+                html += `
+                    <tr>
+                        <td><code>${file.filename}</code></td>
+                        <td>${file.size_mb} MB</td>
+                        <td><small>${file.modified_readable}</small></td>
+                        <td>
+                            ${sessionId ? `
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewLogFile(${sessionId}, '${file.filename}')">
+                                <i class="bi bi-eye"></i> View
+                            </button>
+                            ` : ''}
+                            <a href="/dashboard/monitoring/logs/download/${file.filename}" class="btn btn-sm btn-outline-success" target="_blank">
+                                <i class="bi bi-download"></i> Download
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i> 
+                    Total: ${data.total} log files in <code>${data.log_dir}</code>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        } catch (error) {
+            container.innerHTML = `<div class="alert alert-danger">Error loading log files: ${error.message}</div>`;
+        }
+    }
+
+    function viewLogFile(sessionId, filename) {
+        // Close the all logs modal
+        bootstrap.Modal.getInstance(document.getElementById('allLogsModal')).hide();
+
+        // Open the log viewer for this session
+        openLogViewer(sessionId, filename.replace('.log', ''));
+    }
+
+    // Clean up auto-refresh on modal close
+    document.getElementById('logModal').addEventListener('hidden.bs.modal', function () {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            document.getElementById('autoRefreshBtn').innerHTML = `<i class="bi bi-play"></i> Auto Refresh`;
+        }
+        currentSessionId = null;
+        currentSessionTitle = '';
+    });
 
     // Poll system stats every 5 seconds
     setInterval(updateSystemStats, 5000);

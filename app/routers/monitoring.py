@@ -11,6 +11,7 @@ from app.database import SessionLocal
 from app.models.live_session import LiveSession
 from app.models.stream_key import StreamKey
 from app.services.stream_control_service import stream_control
+from app.services.ffmpeg_service import ffmpeg_service
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 templates = Jinja2Templates(directory="templates")
@@ -159,8 +160,6 @@ def get_system_stats():
         },
         'memory': {
             'percent': memory.percent,
-            'used_gb': round(memory.used / (1024**3), 2),
-            'total_gb': round(memory.total / (1024**3), 2)
         },
         'disk': {
             'percent': disk.percent,
@@ -169,3 +168,104 @@ def get_system_stats():
         }
     })
 
+
+@router.get("/monitoring/logs/{session_id}")
+def get_session_logs(session_id: int, lines: int = 100):
+    """
+    Get FFmpeg logs for a specific session.
+    
+    Args:
+        session_id: Live session ID
+        lines: Number of lines to show from the end (tail)
+    """
+    import os
+    
+    log_content = ffmpeg_service.get_log_content(session_id, lines=lines)
+    
+    if not log_content:
+        return JSONResponse({
+            'success': False,
+            'message': f'No logs found for session {session_id}'
+        }, status_code=404)
+    
+    # Get more info about the session
+    status = ffmpeg_service.get_process_status(session_id)
+    
+    return JSONResponse({
+        'success': True,
+        'session_id': session_id,
+        'lines': lines,
+        'log_content': log_content,
+        'status': status
+    })
+
+
+@router.get("/monitoring/logs")
+def list_all_logs():
+    """
+    List all available FFmpeg log files.
+    """
+    import os
+    import glob
+    from pathlib import Path
+    
+    log_dir = "logs/ffmpeg"
+    if not os.path.exists(log_dir):
+        return JSONResponse({
+            'success': True,
+            'log_files': [],
+            'total': 0
+        })
+    
+    # Get all log files
+    log_files = []
+    for log_file in sorted(glob.glob(os.path.join(log_dir, "*.log")), reverse=True):
+        file_stats = os.stat(log_file)
+        file_size_mb = file_stats.st_size / (1024 * 1024)
+        modified_time = datetime.fromtimestamp(file_stats.st_mtime)
+        
+        log_files.append({
+            'filename': os.path.basename(log_file),
+            'path': log_file,
+            'size_mb': round(file_size_mb, 2),
+            'modified': modified_time.isoformat(),
+            'modified_readable': modified_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    return JSONResponse({
+        'success': True,
+        'log_files': log_files,
+        'total': len(log_files),
+        'log_dir': log_dir
+    })
+
+
+@router.get("/monitoring/logs/download/{filename}")
+def download_log_file(filename: str):
+    """
+    Download a specific log file.
+    """
+    import os
+    from fastapi.responses import FileResponse
+    
+    log_dir = "logs/ffmpeg"
+    log_path = os.path.join(log_dir, filename)
+    
+    # Security: Prevent directory traversal
+    if not os.path.abspath(log_path).startswith(os.path.abspath(log_dir)):
+        return JSONResponse({
+            'success': False,
+            'message': 'Invalid file path'
+        }, status_code=400)
+    
+    if not os.path.exists(log_path):
+        return JSONResponse({
+            'success': False,
+            'message': 'Log file not found'
+        }, status_code=404)
+    
+    return FileResponse(
+        path=log_path,
+        filename=filename,
+        media_type='text/plain'
+    )
