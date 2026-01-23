@@ -377,7 +377,7 @@
             };
 
             if (search) params.search = search;
-            if (categoryId) params.category_id = categoryId;
+            if (categoryId) params.category_id = parseInt(categoryId);
             if (format) params.format = format;
 
             const response = await axios.get('/music-files/', { params });
