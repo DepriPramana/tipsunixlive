@@ -5,7 +5,13 @@ load_dotenv()
 
 YOUTUBE_STREAM_KEY = os.getenv("YOUTUBE_STREAM_KEY")
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data.db")
+# Determine absolute path to data.db to avoid CWD issues
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # app/
+PROJECT_ROOT = os.path.dirname(BASE_DIR) # project root
+
+# Default to data.db in project root
+DEFAULT_DB_PATH = os.path.join(PROJECT_ROOT, "data.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
 # Security
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_ENV_FILE")

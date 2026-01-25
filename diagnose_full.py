@@ -21,6 +21,13 @@ def diagnose():
     db = SessionLocal()
     print("=== SCHEDULER DIAGNOSIS ===")
     
+    # 0. Check Database Path
+    import os
+    from app.database import engine
+    print(f"Current Working Directory: {os.getcwd()}")
+    print(f"Database URL: {engine.url}")
+    print(f"Absolute Data DB Path (Expected): {os.path.abspath('data.db')}")
+    
     # 1. Check Time
     local_time = datetime.now()
     utc_time = datetime.now(datetime_timezone.utc)
