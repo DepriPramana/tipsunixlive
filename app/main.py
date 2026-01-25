@@ -68,27 +68,30 @@ def cleanup_zombie_sessions():
     from app.database import SessionLocal
     from app.models.live_session import LiveSession
     from datetime import datetime
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     db = SessionLocal()
     try:
         from app.services.stream_control_service import stream_control
         
         # 1. Kill system processes that are not in DB (or if DB says they are running but they are orphans)
-        print("🔍 Searching for orphaned FFmpeg processes...")
+        logger.info("Searching for orphaned FFmpeg processes...")
         cleanup_result = stream_control.force_cleanup_orphaned_processes(db)
         if cleanup_result['killed_count'] > 0:
-            print(f"💀 Killed {cleanup_result['killed_count']} orphaned FFmpeg processes")
+            logger.warning(f"Killed {cleanup_result['killed_count']} orphaned FFmpeg processes")
 
         # 2. Mark any remaining 'running' sessions as 'interrupted'
         zombies = db.query(LiveSession).filter(LiveSession.status == 'running').all()
         if zombies:
-            print(f"🧹 Marking {len(zombies)} ghost sessions in DB as interrupted...")
+            logger.warning(f"Marking {len(zombies)} ghost sessions in DB as interrupted...")
             for session in zombies:
                 session.status = 'interrupted'
                 session.end_time = datetime.utcnow()
             db.commit()
     except Exception as e:
-        print(f"❌ Error during startup cleanup: {e}")
+        logger.error(f"Error during startup cleanup: {e}")
     finally:
         db.close()
 
@@ -96,6 +99,9 @@ def cleanup_zombie_sessions():
 async def startup_event():
     """Run tasks on startup"""
     import asyncio
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     # Clean up old sessions first
     cleanup_zombie_sessions()
@@ -103,12 +109,9 @@ async def startup_event():
     try:
         from app.services.stream_control_service import health_monitor_loop
         asyncio.create_task(health_monitor_loop())
-        print("🚀 Health monitor started")
+        logger.info("Health monitor started")
     except Exception as e:
-        print(f"❌ Error starting health monitor: {e}")
-
-    except Exception as e:
-        print(f"❌ Error starting health monitor: {e}")
+        logger.error(f"Error starting health monitor: {e}")
 
 
 @app.get("/")

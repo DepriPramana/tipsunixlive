@@ -176,7 +176,7 @@ def create_live_setup(
             playlist_id=playlist_id
         )
         
-        print(f"DEBUG: Result received: {result.keys() if result else 'None'}")
+        logger.debug(f"Result received: {result.keys() if result else 'None'}")
         if result and result.get('broadcast_id'):
             try:
                 # 1. Save Broadcast to DB
