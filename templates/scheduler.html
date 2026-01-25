@@ -305,7 +305,7 @@
             const vid = document.getElementById('editVideo').value;
             if (!vid) return showToast('Please select a video', 'danger');
             payload.video_id = parseInt(vid);
-        } else {
+        } else if (mode === 'playlist') {
             const pid = document.getElementById('editPlaylist').value;
             if (!pid) return showToast('Please select a playlist', 'danger');
             payload.playlist_id = parseInt(pid);
