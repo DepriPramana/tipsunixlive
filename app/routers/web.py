@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.video_service import VideoService
 from app.services.playlist_service import PlaylistService
+from app.services.music_playlist_service import MusicPlaylistService
 from app.services.live_history_service import LiveHistoryService
 from app.services.stream_service import stream_service
 
@@ -222,12 +223,16 @@ async def scheduler_page(request: Request, db: Session = Depends(get_db)):
     # Get playlists for edit modal
     playlist_service = PlaylistService(db)
     playlists = playlist_service.get_all_playlists()
+
+    # Get music playlists for edit modal
+    music_playlist_service = MusicPlaylistService(db)
     
     return templates.TemplateResponse("scheduler.html", {
         "request": request,
         "stream_keys": stream_keys,
         "videos": videos_dict,
-        "playlists": playlists
+        "playlists": playlists,
+        "music_playlists": music_playlist_service.get_all_music_playlists()
     })
 
 

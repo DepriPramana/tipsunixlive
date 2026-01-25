@@ -101,6 +101,7 @@
                         <select class="form-select" id="editMode" onchange="toggleEditContent()">
                             <option value="single">Single Video</option>
                             <option value="playlist">Playlist</option>
+                            <option value="music_playlist">Music Playlist</option>
                         </select>
                     </div>
 
@@ -120,6 +121,17 @@
                             <option value="">-- Select Playlist --</option>
                             {% for playlist in playlists %}
                             <option value="{{ playlist.id }}">{{ playlist.name }} ({{ playlist.count }} videos)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="editMusicPlaylistGroup" style="display:none;">
+                        <label class="form-label">Music Playlist</label>
+                        <select class="form-select" id="editMusicPlaylist">
+                            <option value="">-- Select Music Playlist --</option>
+                            {% for playlist in music_playlists %}
+                            <option value="{{ playlist.id }}">{{ playlist.name }} ({{ playlist.music_files|length }}
+                                songs)</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -240,6 +252,7 @@
         const mode = document.getElementById('editMode').value;
         document.getElementById('editVideoGroup').style.display = mode === 'single' ? 'block' : 'none';
         document.getElementById('editPlaylistGroup').style.display = mode === 'playlist' ? 'block' : 'none';
+        document.getElementById('editMusicPlaylistGroup').style.display = mode === 'music_playlist' ? 'block' : 'none';
     }
 
     function openEditModal(id) {
@@ -262,8 +275,10 @@
         // Set content selection
         if (schedule.mode === 'single') {
             document.getElementById('editVideo').value = schedule.video_id || '';
-        } else {
+        } else if (schedule.mode === 'playlist') {
             document.getElementById('editPlaylist').value = schedule.playlist_id || '';
+        } else if (schedule.mode === 'music_playlist') {
+            document.getElementById('editMusicPlaylist').value = schedule.music_playlist_id || '';
         }
 
         toggleEditContent();
@@ -282,7 +297,8 @@
             recurrence: document.getElementById('editRecurrence').value,
             max_duration_hours: parseInt(document.getElementById('editDuration').value),
             video_id: null,
-            playlist_id: null
+            playlist_id: null,
+            music_playlist_id: null
         };
 
         if (mode === 'single') {
@@ -293,6 +309,10 @@
             const pid = document.getElementById('editPlaylist').value;
             if (!pid) return showToast('Please select a playlist', 'danger');
             payload.playlist_id = parseInt(pid);
+        } else if (mode === 'music_playlist') {
+            const mpid = document.getElementById('editMusicPlaylist').value;
+            if (!mpid) return showToast('Please select a music playlist', 'danger');
+            payload.music_playlist_id = parseInt(mpid);
         }
 
         try {
