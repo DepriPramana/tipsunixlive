@@ -319,14 +319,30 @@ class FFmpegService:
         )
         
         # Write video paths
+        valid_count = 0
         for path in video_paths:
+            if not os.path.exists(path):
+                logger.warning(f"Skipping missing file: {path}")
+                continue
+                
+            if os.path.getsize(path) == 0:
+                logger.warning(f"Skipping empty file: {path}")
+                continue
+
             # Ensure path is absolute for FFmpeg
             abs_path = os.path.abspath(path)
+            
+            # Normalize path separators for FFmpeg (Windows backslashes can cause issues in concat files)
+            abs_path = abs_path.replace('\\', '/')
             
             # Escape single quotes in path
             escaped_path = abs_path.replace("'", "'\\''")
             concat_file.write(f"file '{escaped_path}'\n")
-        
+            valid_count += 1
+            
+        if valid_count == 0:
+            logger.error(f"No valid video files found for session {session_id}")
+            
         concat_file.close()
         
         logger.info(f"Created concat file: {concat_file.name}")
