@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import SessionLocal
 from app.models.stream_key import StreamKey
@@ -251,7 +251,7 @@ def schedule_live(
         scheduled_live = live_scheduler.schedule_live(
             db=db,
             stream_key_id=request.stream_key_id,
-            scheduled_time=request.scheduled_time.replace(tzinfo=None),  # Remove TZ info for consistent storage
+            scheduled_time=request.scheduled_time.astimezone(timezone.utc).replace(tzinfo=None),  # Convert to UTC first, then remove TZ info
             video_id=request.video_id,
             playlist_id=request.playlist_id,
             music_playlist_id=request.music_playlist_id,
@@ -335,7 +335,7 @@ def update_scheduled_live(
             db=db,
             scheduled_live_id=schedule_id,
             stream_key_id=request.stream_key_id,
-            scheduled_time=request.scheduled_time.replace(tzinfo=None),
+            scheduled_time=request.scheduled_time.astimezone(timezone.utc).replace(tzinfo=None),
             video_id=request.video_id,
             playlist_id=request.playlist_id,
             mode=request.mode,
