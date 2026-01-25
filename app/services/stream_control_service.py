@@ -435,6 +435,37 @@ async def health_monitor_loop():
                         session.status = 'failed'
                         session.end_time = datetime.utcnow()
                         db.commit()
+                
+                # RESET RETRY COUNT LOGIC
+                # If stream is running and has been running longer than 1 hour (3600s), reset restart_count
+                # This ensures that long-running streams don't fail due to accumulated minor hiccups over days
+                elif is_running and session.restart_count > 0:
+                    try:
+                        # Check uptime via ffmpeg service if possible, or just trust it's running
+                        # We use a simple heuristic: if we see it running here, it's alive.
+                        # But we need to make sure we don't reset it immediately after a restart.
+                        # We can check session.start_time, but that is the initial start time.
+                        # We don't track "last restart time" explicitly in DB, but we can assume
+                        # if it survives 10 checks (100s) it's stable? 
+                        # Better: just reset it if it's running. The fact it is running means it recovered or is stable.
+                        # But we don't want to reset it AS it is restarting.
+                        # 'is_running' is True means the process exists.
+                        
+                        # Let's simple reset it if it is running.
+                        # The only risk is if it crashes every 5 seconds, we might reset it.
+                        # But the efficient health check is every 10s.
+                        # If it crashes every 5s, 'is_running' will likely be False when we check (50% chance)
+                        # or we will see it dead eventually.
+                        
+                        # To be safe, we only reset if it has been running for awhile.
+                        # We can use ffmpeg_service.get_process_status to get uptime.
+                        status = ffmpeg_service.get_process_status(session.id)
+                        if status and status.get('uptime_seconds', 0) > 3600: # Stable for 1 hour
+                            logger.info(f"Session {session.id} is stable (>1h). Resetting restart count (was {session.restart_count}).")
+                            session.restart_count = 0
+                            db.commit()
+                    except Exception as e:
+                        logger.warning(f"Error resetting restart count for session {session.id}: {e}")
             
             db.close()
         except Exception as e:
