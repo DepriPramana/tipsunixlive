@@ -294,7 +294,7 @@ class LiveSchedulerService:
                 # This is allowed - no collision check needed for video
                 logger.info(f"Using video: {video.name}")
                 
-            else:  # playlist mode
+            elif scheduled_live.mode == 'playlist':
                 playlist = db.query(Playlist).filter(
                     Playlist.id == scheduled_live.playlist_id
                 ).first()
@@ -315,11 +315,7 @@ class LiveSchedulerService:
                 # This is allowed - no collision check needed for playlist
                 logger.info(f"Using playlist: {playlist.name} ({len(video_paths)} videos)")
             
-            # Handle music_playlist mode
-            music_files = []
-            music_playlist = None
-            
-            if scheduled_live.mode == 'music_playlist':
+            elif scheduled_live.mode == 'music_playlist':
                 from app.models.music_playlist import MusicPlaylist
                 from app.services.music_playlist_service import MusicPlaylistService
                 

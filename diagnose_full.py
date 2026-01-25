@@ -17,16 +17,38 @@ from app.services.live_scheduler_service import live_scheduler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def check_file_stats(path):
+    if os.path.exists(path):
+        size = os.path.getsize(path)
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        print(f"  [FILE] Found: {path}")
+        print(f"  [FILE] Size: {size} bytes")
+        print(f"  [FILE] Modified: {mtime}")
+    else:
+        print(f"  [FILE] NOT FOUND: {path}")
+
 def diagnose():
     db = SessionLocal()
     print("=== SCHEDULER DIAGNOSIS ===")
     
+    # -1. Check .env
+    env_path = os.path.join(os.getcwd(), '.env')
+    if os.path.exists(env_path):
+        print(f"\n[ENV] Found .env at {env_path}")
+        with open(env_path, 'r') as f:
+            for line in f:
+                if 'DATABASE_URL' in line:
+                    print(f"  [ENV] {line.strip()}")
+    else:
+        print("\n[ENV] No .env file found in CWD")
+
     # 0. Check Database Path
     import os
     from app.database import engine
     print(f"Current Working Directory: {os.getcwd()}")
     print(f"Database URL: {engine.url}")
     print(f"Absolute Data DB Path (Expected): {os.path.abspath('data.db')}")
+    check_file_stats(os.path.abspath('data.db'))
     
     # 1. Check Time
     local_time = datetime.now()
@@ -34,7 +56,11 @@ def diagnose():
     print(f"Server Local Time: {local_time}")
     print(f"Server UTC Time:   {utc_time}")
     
-    # 2. Check Pending Jobs
+    # 2. Check Jobs (ALL)
+    print("\n[ALL JOBS QUERY]")
+    all_jobs = db.query(ScheduledLive).all()
+    print(f"Total jobs found in DB: {len(all_jobs)}")
+
     print("\n[PENDING JOBS]")
     pending = db.query(ScheduledLive).filter(ScheduledLive.status == 'pending').all()
     
